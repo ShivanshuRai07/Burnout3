@@ -25,6 +25,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 STATIC = {"index.html", "styles.css", "app.js"}
 TEMPLATES = {"employees_template.csv", "monthly_template.csv", "interventions_template.csv",
+             "company_upload_template.csv",
              # a ready-made 400-person company to try the upload with
              "sample_company/employees.csv", "sample_company/monthly.csv", "sample_company/interventions.csv",
              # December 2025 for the demo, uploaded by hand after signing in
@@ -117,6 +118,8 @@ class Handler(BaseHTTPRequestHandler):
         name = self.path.split("?")[0].lstrip("/") or "index.html"
         if name.startswith("templates/") and name.split("/", 1)[1] in TEMPLATES:
             return self._send(HTTPStatus.OK, (ROOT / name).read_bytes(), "text/csv; charset=utf-8")
+        if name == "company_upload_template.csv":
+            return self._send(HTTPStatus.OK, (ROOT / "company_upload_template.csv").read_bytes(), "text/csv; charset=utf-8")
         if name not in STATIC:
             return self._send(HTTPStatus.NOT_FOUND, b"not found", "text/plain")
         ctype = mimetypes.guess_type(name)[0] or "application/octet-stream"

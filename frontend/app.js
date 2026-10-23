@@ -1533,6 +1533,410 @@
       if (e.target.closest("[data-replace]")) { document.body.classList.add("show-replace"); $(".upload-block").scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" }); }
     });
   }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // COMPANY FILE ANALYSIS & MULTI-MODEL REPORT
+  // ══════════════════════════════════════════════════════════════════════════
+  let currentCompanyData = null;
+  let companyFiles = { employees: null, monthly: null, interventions: null };
+  let employeeTableRows = [];
+  let currentTablePage = 0;
+  let employeeTableRequest = 0;
+
+  function csvHeader(text) {
+    return (text.split(/\r?\n/, 1)[0] || "").split(",").map((value) => value.replace(/^\uFEFF/, "").trim().toLowerCase().replace(/^"|"$/g, ""));
+  }
+
+  async function loadLongitudinalModels(files) {
+    if (!files.employees) return { available: false, reason: "Add employees.csv to enable longitudinal model views." };
+    const [employeesText, monthlyText] = await Promise.all([files.employees.text(), files.monthly.text()]);
+    const employeeColumns = csvHeader(employeesText);
+    const monthlyColumns = csvHeader(monthlyText);
+    const requiredEmployee = ["employee_id", "department"];
+    const requiredMonthly = ["employee_id", "period", ...Array.from({ length: 7 }, (_, index) => `cbi_w${index + 1}`)];
+    const missing = [
+      ...requiredEmployee.filter((column) => !employeeColumns.includes(column)).map((column) => `employees.${column}`),
+      ...requiredMonthly.filter((column) => !monthlyColumns.includes(column)).map((column) => `monthly.${column}`),
+    ];
+    if (missing.length) return { available: false, reason: `Forecast requires ${missing.join(", ")}.` };
+
+    const periodIndex = monthlyColumns.indexOf("period");
+    const periods = new Set(monthlyText.split(/\r?\n/).slice(1).map((line) => line.split(",")[periodIndex]?.trim().replace(/^"|"$/g, "")).filter(Boolean));
+    if (periods.size < 2) return { available: false, reason: "Forecast requires at least two monthly periods for the same workforce." };
+
+    const form = new FormData();
+    form.append("employees", files.employees, files.employees.name);
+    form.append("monthly", files.monthly, files.monthly.name);
+    if (files.interventions) form.append("interventions", files.interventions, files.interventions.name);
+    const upload = await fetch("/api/loop/upload", { method: "POST", body: form });
+    const uploadResult = await upload.json();
+    if (!upload.ok || !uploadResult.ok) return { available: false, reason: uploadResult.error || "The longitudinal model could not use these files." };
+    const [loopResponse, forecastResponse] = await Promise.all([fetch("/api/loop"), fetch("/api/forecast")]);
+    const [loop, forecast] = await Promise.all([loopResponse.json(), forecastResponse.json()]);
+    if (!forecast.available) return { available: false, reason: forecast.message || "A next-month forecast is not available for this history." };
+    return { available: true, loop, forecast, periods: [...periods].sort() };
+  }
+
+  function wireCompanyAnalysis() {
+    const statusMsg   = $('#company-upload-status');
+    const btnAnalyse  = $('#btn-run-company-analysis');
+    const btnExport   = $('#btn-export-scored-csv');
+    const btnReupload = $('#btn-reupload');
+    const searchInput = $('#res-table-search');
+    const filterBand  = $('#res-table-filter-band');
+    const filterMode  = $('#res-table-filter-mode');
+    const pageSize    = $('#res-table-page-size');
+
+    if (!statusMsg || !btnAnalyse) return;
+
+    const picker = $('#company-files');
+    const pickButton = $('#company-files-button');
+    const fileList = $('#company-files-list');
+    const uploadBox = $('#simple-upload');
+    const setFiles = (files) => {
+      const selected = [...files].slice(0, 3);
+      companyFiles = { employees: null, monthly: null, interventions: null };
+      selected.forEach((file, index) => {
+        const name = file.name.toLowerCase();
+        if (name.includes('employee')) companyFiles.employees = file;
+        else if (name.includes('intervention')) companyFiles.interventions = file;
+        else if (!companyFiles.monthly) companyFiles.monthly = file;
+        else if (!companyFiles.employees) companyFiles.employees = file;
+      });
+      fileList.innerHTML = selected.length
+        ? selected.map((file) => `<span>${esc(file.name)} <small>${(file.size / 1024).toFixed(0)} KB</small></span>`).join('')
+        : 'No files selected';
+      fileList.classList.toggle('has-files', selected.length > 0);
+      updateUploadState();
+    };
+    pickButton?.addEventListener('click', () => picker.click());
+    picker?.addEventListener('change', (e) => setFiles(e.target.files));
+    uploadBox?.addEventListener('dragover', (e) => { e.preventDefault(); uploadBox.classList.add('is-dragover'); });
+    uploadBox?.addEventListener('dragleave', () => uploadBox.classList.remove('is-dragover'));
+    uploadBox?.addEventListener('drop', (e) => { e.preventDefault(); uploadBox.classList.remove('is-dragover'); setFiles(e.dataTransfer.files); });
+
+    function updateUploadState() {
+      const hasRequired = !!companyFiles.monthly;
+      btnAnalyse.disabled = !hasRequired;
+      if (!hasRequired) {
+        statusMsg.className = 'c-status-msg';
+        statusMsg.innerHTML = '<span class="c-status-dot"></span> Choose a CSV containing your monthly workforce data.';
+      } else {
+        const iv = companyFiles.interventions;
+        statusMsg.className = 'c-status-msg is-ready';
+        statusMsg.innerHTML = '<span class="c-status-dot"></span> Ready to analyse with the trained models.';
+      }
+    }
+
+    btnAnalyse.addEventListener('click', async () => {
+      if (!companyFiles.monthly) return;
+      btnAnalyse.disabled = true;
+      btnAnalyse.innerHTML = '<span class="spin"></span> Running ML Analysis…';
+      statusMsg.className = 'c-status-msg';
+      statusMsg.innerHTML = '<span class="c-status-dot"></span> Streaming files and evaluating ML pipelines…';
+      try {
+        const fd = new FormData();
+        // The trained score and risk models evaluate monthly telemetry, enriched
+        // with stable employee attributes (such as role and work mode).
+        if (companyFiles.employees) fd.append('employees', companyFiles.employees, companyFiles.employees.name);
+        fd.append('monthly', companyFiles.monthly, companyFiles.monthly.name);
+        const res  = await fetch('/api/analyse-upload', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || 'Upload analysis failed');
+        try {
+          data.longitudinal = await loadLongitudinalModels(companyFiles);
+        } catch (longitudinalError) {
+          data.longitudinal = { available: false, reason: `Longitudinal views were not loaded: ${longitudinalError.message}` };
+        }
+        currentCompanyData = data;
+        setUploadedAnalysis(true);
+        renderAccount();
+        statusMsg.className = 'c-status-msg is-ready';
+        statusMsg.innerHTML = '<span class="c-status-dot"></span> ✓ Analysis complete: <b>' + f0(data.employee_table_count || 0) + '</b> employees scored.' + (data.longitudinal?.available ? ' Next-month forecast enabled.' : '');
+        renderCompanyAnalysisResults(data);
+        const resultsEl = $('#company-analysis-results');
+        if (resultsEl) { resultsEl.style.display = 'flex'; resultsEl.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' }); }
+        toast('Analysis complete: ' + f0(data.employee_table_count || 0) + ' employees evaluated.');
+      } catch (err) {
+        statusMsg.className = 'c-status-msg is-error';
+        statusMsg.innerHTML = '<span class="c-status-dot"></span> Error: ' + esc(err.message);
+        toast('Analysis failed: ' + err.message);
+      } finally {
+        btnAnalyse.disabled = false;
+        btnAnalyse.innerHTML = 'Run analysis';
+      }
+    });
+
+    if (btnReupload) btnReupload.addEventListener('click', () => {
+      const tile = $('#company-upload-tile');
+      if (tile) tile.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
+    });
+
+    if (btnExport) btnExport.addEventListener('click', () => {
+      if (!employeeTableRows || !employeeTableRows.length) { toast('No scored rows to export.'); return; }
+      const headers = ['Employee ID','Job Role','Work Mode','Weekly Hrs','OT Hrs','Stress','Burnout Score','Elevated Prob %','Risk Tier'];
+      const rows = employeeTableRows.map(r => ['"'+(r.id||'')+'"','"'+(r.role||'')+'"','"'+(r.mode||'')+'"',
+        r.hours??'',r.overtime??'',r.stress??'',r.score??'',r.prob??'','"'+(r.band||'')+'"']);
+      const csv  = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      const link = document.createElement('a'); link.href = encodeURI(csv); link.download = 'burnoutiq_scored.csv';
+      document.body.appendChild(link); link.click(); document.body.removeChild(link);
+      toast('Exported scored data.');
+    });
+
+    function onFilterChange() { currentTablePage = 0; renderEmployeeTable(); }
+    if (searchInput) searchInput.addEventListener('input',  onFilterChange);
+    if (filterBand)  filterBand.addEventListener('change', onFilterChange);
+    if (filterMode)  filterMode.addEventListener('change', onFilterChange);
+    if (pageSize)    pageSize.addEventListener('change', onFilterChange);
+  }
+
+  function renderCompanyAnalysisResults(data) {
+    const ds = data.active_dataset || {};
+    $("#res-heading").textContent = `Workforce Risk Assessment: ${ds.source_file || "Company CSV"}`;
+    $("#res-meta").textContent = `${f0(data.employee_table_count || 0)} employee records evaluated · HistGradientBoosting Regressor + Calibrated Risk Classifier`;
+
+    // 1. KPIs
+    $("#kpi-total-employees").textContent = f0(data.employee_table_count || 0);
+    const avgScore = Number(data.mean_burnout_score || 0);
+    $("#kpi-avg-score").textContent = avgScore.toFixed(2);
+
+    const badgeEl = $("#kpi-score-badge");
+    if (avgScore >= 3.7) {
+      badgeEl.className = "res-kpi-badge res-badge-elev";
+      badgeEl.textContent = "Elevated Risk";
+    } else if (avgScore >= 2.5) {
+      badgeEl.className = "res-kpi-badge res-badge-mod";
+      badgeEl.textContent = "Moderate Risk";
+    } else {
+      badgeEl.className = "res-kpi-badge res-badge-low";
+      badgeEl.textContent = "Low Risk";
+    }
+
+    $("#kpi-elevated-rate").textContent = `${(data.elevated_review_rate || 0).toFixed(1)}%`;
+    const elevCount = data.risk_distribution?.Elevated || 0;
+    $("#kpi-elevated-count").textContent = `${f0(elevCount)} flagged for review`;
+    $("#kpi-ml-confidence").textContent = `${(data.mean_elevated_probability || 0).toFixed(1)}%`;
+
+    const qualityFields = $("#res-data-quality-fields");
+    if (qualityFields) {
+      const found = data.detected_fields || [];
+      const defaults = data.optional_fields_not_supplied || [];
+      qualityFields.innerHTML = `<div><b>${f0(found.length)}</b><span>model fields detected</span></div><div><b>${f0(data.employee_table_count || 0)}</b><span>valid rows scored</span></div><div><b>${data.longitudinal?.available ? "Enabled" : "Snapshot"}</b><span>${data.longitudinal?.available ? "next-month forecast" : "forecast data status"}</span></div><div class="res-data-quality-chips">${found.slice(0, 10).map((field) => `<code>${esc(field)}</code>`).join("") || "<span>No mapped fields reported.</span>"}${defaults.length ? `<small>${f0(defaults.length)} optional model fields not supplied; trained defaults were used where needed.</small>` : ""}</div>`;
+    }
+
+    // 2. Risk Tier Distribution Bar
+    const dist = data.risk_distribution || { Low: 0, Moderate: 0, Elevated: 0 };
+    const low = dist.Low || 0;
+    const mod = dist.Moderate || 0;
+    const elev = dist.Elevated || 0;
+    const totalDist = (low + mod + elev) || 1;
+    const lowPct = (low / totalDist * 100);
+    const modPct = (mod / totalDist * 100);
+    const elevPct = (elev / totalDist * 100);
+
+    $("#res-tier-bar").innerHTML = `
+      ${lowPct > 0 ? `<div class="res-tier-seg res-tier-seg--low" style="width:${lowPct}%" title="Low Risk: ${low} (${lowPct.toFixed(1)}%)">${lowPct >= 8 ? lowPct.toFixed(0) + '%' : ''}</div>` : ''}
+      ${modPct > 0 ? `<div class="res-tier-seg res-tier-seg--mod" style="width:${modPct}%" title="Moderate Risk: ${mod} (${modPct.toFixed(1)}%)">${modPct >= 8 ? modPct.toFixed(0) + '%' : ''}</div>` : ''}
+      ${elevPct > 0 ? `<div class="res-tier-seg res-tier-seg--elev" style="width:${elevPct}%" title="Elevated Risk: ${elev} (${elevPct.toFixed(1)}%)">${elevPct >= 8 ? elevPct.toFixed(0) + '%' : ''}</div>` : ''}
+    `;
+
+    $("#res-tier-legend").innerHTML = `
+      <div class="res-leg-item"><span class="res-leg-dot" style="background:#10b981"></span><b>Low Risk:</b> ${f0(low)} (${lowPct.toFixed(1)}%)</div>
+      <div class="res-leg-item"><span class="res-leg-dot" style="background:#f59e0b"></span><b>Moderate:</b> ${f0(mod)} (${modPct.toFixed(1)}%)</div>
+      <div class="res-leg-item"><span class="res-leg-dot" style="background:#ef4444"></span><b>Elevated:</b> ${f0(elev)} (${elevPct.toFixed(1)}%)</div>
+    `;
+    const tierDonut = $("#res-tier-donut");
+    if (tierDonut) {
+      tierDonut.style.background = `conic-gradient(#10b981 0 ${lowPct}%, #f59e0b ${lowPct}% ${lowPct + modPct}%, #ef4444 ${lowPct + modPct}% 100%)`;
+      tierDonut.innerHTML = `<div><b>${f0(low + mod + elev)}</b><span>records scored</span></div>`;
+    }
+    const tierInsight = $("#res-tier-insight");
+    if (tierInsight) {
+      const priorityRatio = elev ? `1 in ${Math.max(1, Math.round(totalDist / elev))}` : "No records";
+      tierInsight.innerHTML = `<span>Review priority</span><b>${priorityRatio}</b><small>${elev ? "records are in the elevated tier" : "are in the elevated tier"}</small>`;
+    }
+
+    // 3. Role-Based Breakdown
+    const roles = data.role_analysis || [];
+    if (roles.length) {
+      $("#res-role-bars").innerHTML = roles.map(r => {
+        const sc = Number(r.mean_score || 0);
+        const wPct = Math.min(100, Math.max(5, (sc / 10) * 100));
+        const color = sc >= 3.7 ? '#ef4444' : (sc >= 2.5 ? '#f59e0b' : '#10b981');
+        const driverBadges = (r.drivers || []).map(d => `<span class="res-driver-badge">${esc(d.name)}: ${esc(d.delta)}</span>`).join('');
+        return `
+          <div class="res-role-row">
+            <div class="res-role-meta">
+              <span class="res-role-name">${esc(r.name)} <small style="color:#64748b">(${f0(r.employees)} emp)</small></span>
+              <span class="res-role-score-val" style="color:${color}">${sc.toFixed(2)}/10 <small style="color:#64748b">(${r.elevated_rate}% elev)</small></span>
+            </div>
+            <div class="res-role-meter">
+              <div class="res-role-fill" style="width:${wPct}%;background:${color}"></div>
+            </div>
+            ${driverBadges ? `<div class="res-role-drivers">${driverBadges}</div>` : ''}
+          </div>
+        `;
+      }).join('');
+    } else {
+      $("#res-role-bars").innerHTML = '<p class="note">No role breakdown available.</p>';
+    }
+    const reportRoleReview = $("#res-role-review");
+    if (reportRoleReview) reportRoleReview.innerHTML = roles.length ? roleReviewTable(roles) : "";
+
+    // 4. Duration Escalation
+    const durations = data.duration_analysis || [];
+    if (durations.length) {
+      $("#res-duration-chart").innerHTML = durations.map(d => {
+        const sc = Number(d.mean_score || 0);
+        const wPct = Math.min(100, Math.max(5, (sc / 10) * 100));
+        const color = sc >= 3.7 ? '#ef4444' : (sc >= 2.5 ? '#f59e0b' : '#3b82f6');
+        return `
+          <div class="res-dur-row">
+            <span class="res-dur-label">${esc(d.name)}</span>
+            <div class="res-dur-bar-wrap">
+              <div class="res-dur-fill" style="width:${wPct}%;background:${color}"></div>
+            </div>
+            <span style="font-weight:700;color:${color}">${sc.toFixed(2)} pts</span>
+          </div>
+        `;
+      }).join('');
+    } else {
+      $("#res-duration-chart").innerHTML = '<p class="note">No duration metrics.</p>';
+    }
+
+    // 5. Work Mode Dynamics
+    const modes = data.work_mode_analysis || [];
+    if (modes.length) {
+      $("#res-mode-grid").innerHTML = modes.map(m => `
+        <div class="res-mode-card">
+          <div class="res-mode-title">${esc(m.name)}</div>
+          <div class="res-mode-score">${Number(m.mean_score || 0).toFixed(2)}</div>
+          <div class="res-mode-sub">${m.elevated_rate}% elevated · ${f0(m.employees)} emp</div>
+        </div>
+      `).join('');
+    } else {
+      $("#res-mode-grid").innerHTML = '<p class="note">No work mode breakdown.</p>';
+    }
+
+    // 6. Geographic / Location
+    const geos = data.state_analysis?.length ? data.state_analysis : (data.location_analysis || []);
+    const geoCard = $("#res-geo-card");
+    if (geos && geos.length) {
+      geoCard.style.display = "flex";
+      $("#res-geo-grid").innerHTML = geos.slice(0, 8).map(g => {
+        const sc = Number(g.mean_score || 0);
+        const wPct = Math.min(100, Math.max(5, (sc / 10) * 100));
+        const color = sc >= 3.7 ? '#ef4444' : (sc >= 2.5 ? '#f59e0b' : '#3b82f6');
+        return `
+          <div class="res-role-row">
+            <div class="res-role-meta">
+              <span class="res-role-name">${esc(g.name)}</span>
+              <span class="res-role-score-val" style="color:${color}">${sc.toFixed(2)}/10 (${g.elevated_rate}% elev)</span>
+            </div>
+            <div class="res-role-meter">
+              <div class="res-role-fill" style="width:${wPct}%;background:${color}"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    } else {
+      geoCard.style.display = "none";
+    }
+
+    // 7. Longitudinal next-month forecast (only for compatible multi-period CBI files)
+    const forecastCard = $("#res-forecast-card");
+    const forecastLink = $("#report-forecast-link");
+    const forecast = data.longitudinal?.forecast;
+    const next = forecast?.next_projection;
+    if (forecastCard && data.longitudinal?.available && next) {
+      forecastCard.style.display = "flex";
+      if (forecastLink) forecastLink.style.display = "";
+      const points = (forecast.monthly_points || []).slice(-6);
+      $("#res-forecast-summary").innerHTML = `<div><small>Latest observed CBI</small><b>${Number(next.last_observed_mean_cbi || 0).toFixed(1)}</b><span>${esc(next.last_observed_period || "latest period")}</span></div><div><small>Forecast for ${esc(next.forecast_period || "next month")}</small><b>${Number(next.projected_mean_cbi || 0).toFixed(1)}</b><span>${Number(next.projected_mean_cbi || 0) - Number(next.last_observed_mean_cbi || 0) >= 0 ? "+" : ""}${(Number(next.projected_mean_cbi || 0) - Number(next.last_observed_mean_cbi || 0)).toFixed(1)} CBI points</span></div><div><small>95% individual range</small><b>${Number(next.interval_95_lower || 0).toFixed(1)}–${Number(next.interval_95_upper || 0).toFixed(1)}</b><span>Ridge regression model</span></div>`;
+      $("#res-forecast-points").innerHTML = points.map((point) => `<div class="res-forecast-point"><span>${esc(point.period)}</span><i><b style="height:${Math.max(4, Math.min(100, Number(point.future_actual_target_t1 || point.actual_observed_t || 0)))}%"></b></i><strong>${Number(point.future_actual_target_t1 || point.actual_observed_t || 0).toFixed(1)}</strong></div>`).join("") || `<p class="note">The first forecast will appear after enough monthly transitions are available.</p>`;
+      $("#res-forecast-note").textContent = forecast.forecast_insight?.benchmark_comparison || "Projection is based on the uploaded monthly history and is not a diagnosis or employment decision.";
+    } else if (forecastCard) {
+      forecastCard.style.display = "none";
+      if (forecastLink) forecastLink.style.display = "none";
+    }
+
+    // 8. Prescriptive Interventions
+    const ivs = data.interventions || [];
+    if (ivs.length) {
+      $("#res-iv-grid").innerHTML = ivs.map(iv => `
+        <div class="res-iv-item">
+          <div class="res-iv-head">
+            <span class="res-iv-title">${esc(iv.title)}</span>
+            <span class="res-iv-badge">${esc(iv.badge || iv.effort || 'Policy')}</span>
+          </div>
+          <div class="res-iv-desc">${esc(iv.description || iv.action)}</div>
+          <div class="res-iv-impact">
+            ✓ Reduces burnout by -${Number(iv.score_drop || 0).toFixed(2)} pts · Protects ${f0(iv.protected_employees || 0)} staff
+          </div>
+        </div>
+      `).join('');
+    } else {
+      $("#res-iv-grid").innerHTML = '<p class="note">No specific interventions generated.</p>';
+    }
+
+    // 8. Employee Scoring Table
+    employeeTableRows = data.initial_table?.rows || [];
+    currentTablePage = 0;
+    renderEmployeeTable();
+  }
+
+  async function renderEmployeeTable() {
+    const q = ($("#res-table-search")?.value || "").toLowerCase().trim();
+    const band = $("#res-table-filter-band")?.value || "";
+    const mode = $("#res-table-filter-mode")?.value || "";
+    const tbody = $("#res-employee-tbody");
+    if (!tbody) return;
+    const pageSize = Number($("#res-table-page-size")?.value || 25);
+    const requestId = ++employeeTableRequest;
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:#64748b">Loading scored records…</td></tr>';
+    try {
+      const params = new URLSearchParams({ page: String(currentTablePage), page_size: String(pageSize), search: q, filter_band: band, filter_mode: mode, sort_col: "score", sort_dir: "desc" });
+      const response = await fetch(`/api/employee-table?${params}`);
+      const payload = await response.json();
+      if (!response.ok || payload.error) throw new Error(payload.error || "Could not load employee records.");
+      if (requestId !== employeeTableRequest) return;
+      const pageRows = payload.rows || [];
+      const total = Number(payload.total || 0);
+      const start = total ? currentTablePage * pageSize : 0;
+      const end = Math.min(start + pageRows.length, total);
+      if (!pageRows.length && currentTablePage > 0 && total) { currentTablePage = Math.max(0, Math.ceil(total / pageSize) - 1); return renderEmployeeTable(); }
+      if (!pageRows.length) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:#64748b">No employees match the selected filters.</td></tr>';
+        $("#res-table-pager").innerHTML = '';
+        return;
+      }
+      tbody.innerHTML = pageRows.map(r => {
+        const bCls = r.band === 'Elevated' ? 'res-badge--elevated' : (r.band === 'Moderate' ? 'res-badge--moderate' : 'res-badge--low');
+        return `
+          <tr>
+            <td><b>${esc(r.id || 'EMP-XXXX')}</b></td>
+            <td>${esc(r.role || '—')}</td>
+            <td>${esc(r.mode || '—')}</td>
+            <td>${r.hours != null ? r.hours + 'h' : '—'}</td>
+            <td>${r.overtime != null ? r.overtime + 'h' : '—'}</td>
+            <td>${r.stress != null ? r.stress : '—'}</td>
+            <td><b>${r.score != null ? Number(r.score).toFixed(2) : '—'}</b></td>
+            <td>${r.prob != null ? Number(r.prob).toFixed(1) + '%' : '—'}</td>
+            <td><span class="res-badge ${bCls}">${esc(r.band || 'Normal')}</span></td>
+          </tr>`;
+      }).join('');
+      const totalPages = Math.max(1, Math.ceil(total / pageSize));
+      const nearbyPages = Array.from({ length: totalPages }, (_, index) => index).filter((index) => index === 0 || index === totalPages - 1 || Math.abs(index - currentTablePage) <= 1);
+      const pagination = nearbyPages.map((index, position) => `${position && index - nearbyPages[position - 1] > 1 ? '<span class="res-pager-gap">…</span>' : ''}<button type="button" class="btn btn--small btn--ghost ${index === currentTablePage ? 'is-current' : ''}" data-table-page="${index}" ${index === currentTablePage ? 'aria-current="page"' : ''}>${index + 1}</button>`).join('');
+      $("#res-table-pager").innerHTML = `<span>Showing ${start + 1}–${end} of ${f0(total)}</span><div class="res-pager-actions"><button type="button" class="btn btn--small btn--ghost" ${currentTablePage === 0 ? 'disabled' : ''} id="btn-tbl-prev">Previous</button>${pagination}<button type="button" class="btn btn--small btn--ghost" ${currentTablePage >= totalPages - 1 ? 'disabled' : ''} id="btn-tbl-next">Next</button></div>`;
+      $("#btn-tbl-prev")?.addEventListener("click", () => { if (currentTablePage > 0) { currentTablePage--; renderEmployeeTable(); } });
+      $("#btn-tbl-next")?.addEventListener("click", () => { if (currentTablePage < totalPages - 1) { currentTablePage++; renderEmployeeTable(); } });
+      $$('[data-table-page]').forEach((button) => button.addEventListener("click", () => { currentTablePage = Number(button.dataset.tablePage); renderEmployeeTable(); }));
+    } catch (error) {
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:#64748b">No employees match filter criteria.</td></tr>';
+      $("#res-table-pager").innerHTML = `<span class="note">${esc(error.message)}</span>`;
+    }
+  }
   function renderLevels(lvl) {
     $("#levels").innerHTML = `
       <div class="level ${lvl >= 1 ? "is-on" : ""}"><b>Level 1 · CBI answers</b><span>Runs Assess and Verify</span></div>
@@ -1637,8 +2041,8 @@
   }
 
   // ================= router =================
-  const PAGES = { "": "assess", assess: "assess", analytics: "assess", people: "people", employees: "employee", model: "model", data: "data", interventions: "assess" };
-  const NAV_OF = { employee: "people", interventions: "assess", analytics: "assess" };
+  const PAGES = { "": "assess", assess: "assess", analytics: "assess", forecast: "forecast", people: "people", employees: "employee", model: "model", data: "data", signin: "signin", interventions: "interventions" };
+  const NAV_OF = { employee: "people", analytics: "assess" };
   let firstEmployee = null;
   // ================= example survey (Data page) =================
   // CBI work-related subscale: items 1-3 answered on a degree scale, 4-7 on a frequency scale; item 7 is reversed
@@ -1747,10 +2151,247 @@
   // ================= sign in =================
   // a demo sign-in with no passwords: it only picks which data this browser looks at
   const USER_KEY = "biq-user";
+  let uploadedAnalysis = false;
   function user() { try { return JSON.parse(sessionStorage.getItem(USER_KEY) || "null"); } catch { return null; } }
   function setUser(u) { try { u ? sessionStorage.setItem(USER_KEY, JSON.stringify(u)) : sessionStorage.removeItem(USER_KEY); } catch { /* private mode */ } }
-  function locked() { const u = user(); return !u || (u.kind === "company" && S.loop?.source?.kind !== "upload"); }
+  function hasUploadedAnalysis() { return uploadedAnalysis; }
+  function setUploadedAnalysis(done) { uploadedAnalysis = Boolean(done); }
+  function locked() { return !user() || !hasUploadedAnalysis(); }
   function demoFile(p) { return `/templates/demo/monthly_${p}.csv`; }
+
+  function renderAnalysisAvailability() {
+    const ready = hasUploadedAnalysis();
+    const pages = $$(".page[data-page]").filter((page) => !["data", "signin"].includes(page.dataset.page));
+    pages.forEach((page) => {
+      let state = page.querySelector(".analysis-state");
+      if (!state) {
+        state = document.createElement("section");
+        state.className = "analysis-state";
+        state.setAttribute("role", "status");
+        page.append(state);
+      }
+      state.innerHTML = ready && currentCompanyData
+        ? renderGeneratedWorkspace(page.dataset.page, currentCompanyData)
+        : ready
+          ? `<div class="analysis-state__mark" aria-hidden="true"></div><p class="analysis-state__eyebrow">Analysis complete</p><h2>Your uploaded workforce data has been scored.</h2><p>Open File analysis to review the trained-model results, risk distribution, and recommended actions.</p><a class="btn" href="#/data">View analysis</a>`
+        : `<div class="analysis-state__mark" aria-hidden="true"></div><p class="analysis-state__eyebrow">No analysis generated</p><h2>Upload workforce data to generate this view.</h2><p>Charts and tables appear only after the trained models have analysed your CSV data.</p><a class="btn" href="#/data">Upload data</a>`;
+      if (ready && currentCompanyData) wireGeneratedWorkspace(page.dataset.page, currentCompanyData);
+    });
+  }
+
+  function roleRiskLevel(role) {
+    const score = Number(role?.mean_score || 0);
+    if (score >= 3.7) return "Elevated";
+    if (score >= 2.5) return "Moderate";
+    return "Low";
+  }
+
+  function roleReviewRows(items) {
+    return items.map((role) => {
+      const level = roleRiskLevel(role);
+      const levelClass = `is-${level.toLowerCase()}`;
+      const drivers = (role.drivers || []).slice(0, 2).map((driver) =>
+        `<span class="role-review-driver">${esc(driver.name)} <b>${esc(driver.delta || "")}</b></span>`
+      ).join("") || `<span class="role-review-empty">No distinct driver identified</span>`;
+      return `<div class="role-review-row" role="row">
+        <strong role="cell">${esc(role.name || "Unspecified")}</strong>
+        <span role="cell">${f0(role.employees || 0)}</span>
+        <span role="cell">${Number(role.mean_score || 0).toFixed(2)}/10</span>
+        <span role="cell">${Number(role.elevated_rate || 0).toFixed(1)}%</span>
+        <span class="role-review-drivers" role="cell">${drivers}</span>
+        <span role="cell"><em class="role-risk-pill ${levelClass}">${level}</em></span>
+      </div>`;
+    }).join("") || `<p class="note">No matching role is available.</p>`;
+  }
+
+  function roleReviewTable(items, bodyId = "") {
+    return `<div class="role-review-table" role="table" aria-label="Elevated review rate by role">
+      <div class="role-review-head" role="row"><span>Job role</span><span>Employees</span><span>Avg. score</span><span>Elevated rate</span><span>Primary risk drivers</span><span>Risk level</span></div>
+      <div${bodyId ? ` id="${bodyId}"` : ""}>${roleReviewRows(items)}</div>
+    </div>`;
+  }
+
+  function breakdownRiskLevel(item) {
+    const score = Number(item?.mean_score || 0);
+    if (score >= 3.7) return "Elevated";
+    if (score >= 2.5) return "Moderate";
+    return "Low";
+  }
+
+  function breakdownContent(items) {
+    const groups = [...items].sort((a, b) => Number(b.employees || 0) - Number(a.employees || 0));
+    if (!groups.length) return `<p class="note">This breakdown is not available for the uploaded data.</p>`;
+    return `<div class="breakdown-layout"><div class="breakdown-plot" role="img" aria-label="Average burnout score and elevated review rate by selected category"><div class="breakdown-plot__axis"><span>0</span><span>2</span><span>4</span><span>6</span><span>8</span><span>10</span></div>${groups.map((item) => `<div class="breakdown-plot__row"><b title="${esc(item.name)}">${esc(item.name)}</b><div class="breakdown-plot__bars"><i class="breakdown-score" style="width:${Math.min(100, Math.max(0, Number(item.mean_score || 0) * 10))}%"><em>${Number(item.mean_score || 0).toFixed(2)}</em></i><i class="breakdown-rate" style="width:${Math.min(100, Math.max(0, Number(item.elevated_rate || 0)))}%"><em>${Number(item.elevated_rate || 0).toFixed(1)}%</em></i></div></div>`).join("")}<div class="breakdown-legend"><span><i class="breakdown-score"></i>Average burnout score (0–10)</span><span><i class="breakdown-rate"></i>Elevated review rate (%)</span></div></div><div class="breakdown-table" role="table"><div class="breakdown-table__head" role="row"><span>Category</span><span>Employees</span><span>Avg. score</span><span>Elevated %</span><span>Risk</span></div>${groups.map((item) => { const level = breakdownRiskLevel(item); return `<div role="row"><strong>${esc(item.name)}</strong><span>${f0(item.employees || 0)}</span><span>${Number(item.mean_score || 0).toFixed(2)}/10</span><span>${Number(item.elevated_rate || 0).toFixed(1)}%</span><span><em class="role-risk-pill is-${level.toLowerCase()}">${level}</em></span></div>`; }).join("")}</div></div>`;
+  }
+
+  function renderGeneratedWorkspace(page, data) {
+    const dist = data.risk_distribution || {};
+    const total = Number(data.employee_table_count || 0);
+    const roles = data.role_analysis || [];
+    const interventions = data.interventions || [];
+    const rows = data.initial_table?.rows || [];
+    const risk = (value) => value >= 3.7 ? "is-elevated" : value >= 2.5 ? "is-moderate" : "is-low";
+    const meter = (value) => `<span class="workspace-meter"><i class="${risk(value)}" style="width:${Math.min(100, Math.max(4, Number(value || 0) * 10))}%"></i></span>`;
+    const reviewRows = (items) => items.slice(0, 20).map((row) => `<div><span>${esc(row.id || "—")}</span><span>${esc(row.role || "—")}</span><span>${esc(row.mode || "—")}</span><b>${Number(row.score || 0).toFixed(2)}</b><em class="${risk(row.score)}">${esc(row.band || "—")}</em></div>`).join("") || `<p class="note">No employees match the current filters.</p>`;
+    const tierTotal = Math.max(1, Number(dist.Low || 0) + Number(dist.Moderate || 0) + Number(dist.Elevated || 0));
+    const tierVisual = `<div class="workspace-tierbar" role="img" aria-label="Risk distribution: ${f0(dist.Low || 0)} low, ${f0(dist.Moderate || 0)} moderate, ${f0(dist.Elevated || 0)} elevated">
+      <i class="is-low" style="width:${Number(dist.Low || 0) / tierTotal * 100}%"></i><i class="is-moderate" style="width:${Number(dist.Moderate || 0) / tierTotal * 100}%"></i><i class="is-elevated" style="width:${Number(dist.Elevated || 0) / tierTotal * 100}%"></i>
+    </div><div class="workspace-distribution workspace-distribution--interactive"><button type="button" data-tier-filter="Low"><span class="is-low"></span>Low risk <b>${f0(dist.Low || 0)}</b></button><button type="button" data-tier-filter="Moderate"><span class="is-moderate"></span>Moderate risk <b>${f0(dist.Moderate || 0)}</b></button><button type="button" data-tier-filter="Elevated"><span class="is-elevated"></span>Elevated risk <b>${f0(dist.Elevated || 0)}</b></button></div>`;
+    const groupRows = (items, empty, drivers = false) => items.map((item) => {
+      const score = Number(item.mean_score || 0);
+      const notes = drivers && item.drivers?.length ? `<div class="workspace-driver-list">${item.drivers.slice(0, 2).map((driver) => `<span>${esc(driver.name)} ${esc(driver.delta || "")}</span>`).join("")}</div>` : "";
+      return `<div class="workspace-row workspace-row--detail"><span>${esc(item.name || "Unknown")}</span>${meter(score)}<b>${score.toFixed(2)}</b><small>${f0(item.employees || 0)} employees · ${Number(item.elevated_rate || 0).toFixed(1)}% elevated</small>${notes}</div>`;
+    }).join("") || `<p class="note">${empty}</p>`;
+    const duration = data.duration_analysis || [];
+    const modes = data.work_mode_analysis || [];
+    const places = (data.state_analysis?.length ? data.state_analysis : (data.location_analysis || [])).slice(0, 8);
+    const breakdowns = [
+      { key: "mode", label: "Work mode", items: modes },
+      { key: "duration", label: "Work duration", items: duration },
+      { key: "gender", label: "Gender", items: data.gender_analysis || [] },
+      { key: "geo", label: "Geography", items: places },
+    ].filter((breakdown) => breakdown.items.length);
+    const initialBreakdown = breakdowns[0];
+    const nextForecast = data.longitudinal?.forecast?.next_projection;
+    const forecastWorkspace = data.longitudinal?.available && nextForecast
+      ? `<section class="workspace-card workspace-card--wide workspace-forecast"><div class="workspace-card__title"><div><h3>Next-month workforce forecast</h3><p class="workspace-card__sub">Trained Ridge model using the uploaded employee-level monthly history.</p></div><span>${esc(nextForecast.forecast_period || "Next period")}</span></div><div class="workspace-forecast__metrics"><div><small>Latest observed CBI</small><b>${Number(nextForecast.last_observed_mean_cbi || 0).toFixed(1)}</b></div><div><small>Projected mean CBI</small><b>${Number(nextForecast.projected_mean_cbi || 0).toFixed(1)}</b></div><div><small>95% individual range</small><b>${Number(nextForecast.interval_95_lower || 0).toFixed(1)}–${Number(nextForecast.interval_95_upper || 0).toFixed(1)}</b></div></div><p class="workspace-forecast__note">${esc(data.longitudinal.forecast?.forecast_insight?.benchmark_comparison || "Forecast is model-based and should support—not replace—human review.")}</p></section>`
+      : `<section class="workspace-card workspace-card--wide workspace-forecast workspace-forecast--unavailable"><h3>Next-month workforce forecast</h3><p class="note">Available when employees.csv and monthly.csv contain employee IDs, at least two periods, and the seven CBI survey fields. ${esc(data.longitudinal?.reason || "This upload contains snapshot data only.")}</p></section>`;
+    const roleHeatmap = () => {
+      const ordered = roles.map((role) => [role.name, role.risk_tiers || {}]).sort((a, b) => ((b[1].Elevated || 0) + (b[1].Moderate || 0) + (b[1].Low || 0)) - ((a[1].Elevated || 0) + (a[1].Moderate || 0) + (a[1].Low || 0))).slice(0, 12);
+      const hasCounts = ordered.some(([, counts]) => Number(counts.Low || 0) + Number(counts.Moderate || 0) + Number(counts.Elevated || 0) > 0);
+      if (!ordered.length) return `<p class="note">Risk-tier comparison needs role data in the uploaded file.</p>`;
+      if (!hasCounts) return `<p class="note">Risk-tier counts are not available in this earlier analysis result. Run the current CSV analysis again to generate the complete role heatmap.</p>`;
+      return `<div class="workspace-heatmap"><div class="workspace-heatmap__head"><span>Role</span><span>Low</span><span>Moderate</span><span>Elevated</span></div>${ordered.map(([name, counts]) => { const low = Number(counts.Low || 0), moderate = Number(counts.Moderate || 0), elevated = Number(counts.Elevated || 0), total = Math.max(1, low + moderate + elevated), max = Math.max(1, low, moderate, elevated); const cell = (tier, count) => `<i class="is-${tier.toLowerCase()}" style="--intensity:${count / max}" title="${f0(count)} ${tier.toLowerCase()} records (${(count / total * 100).toFixed(1)}%)"><b>${f0(count)}</b><small>${(count / total * 100).toFixed(0)}%</small></i>`; return `<div><b title="${esc(name)}">${esc(name)}</b>${cell("Low", low)}${cell("Moderate", moderate)}${cell("Elevated", elevated)}</div>`; }).join("")}</div>`;
+    };
+    const workloadScatter = () => {
+      const points = Array.isArray(data.workload_scatter) ? data.workload_scatter.filter((row) => Number.isFinite(Number(row.hours)) && Number.isFinite(Number(row.score))) : [];
+      if (points.length < 50) return `<p class="note">A representative workload scatter is generated from the complete scored workforce. Run the current CSV analysis again to replace this earlier limited result.</p>`;
+      const minHours = Math.min(...points.map((row) => Number(row.hours))), maxHours = Math.max(minHours + 1, ...points.map((row) => Number(row.hours)));
+      const W = 560, H = 220, P = 26;
+      const x = (value) => P + ((Number(value) - minHours) / (maxHours - minHours)) * (W - P * 2);
+      const y = (value) => H - P - (Number(value) / 10) * (H - P * 2);
+      const jitter = (row, axis) => { const seed = [...String(row.id || "record")].reduce((sum, char) => (sum * 31 + char.charCodeAt(0)) % 997, axis ? 73 : 17); return ((seed / 997) - .5) * (axis ? .11 : .18); };
+      return `<div class="workspace-scatter__legend"><span class="is-low"></span>Low <span class="is-moderate"></span>Moderate <span class="is-elevated"></span>Elevated <small>${f0(points.length)} representative scored records · hover a dot for detail</small></div><svg class="workspace-scatter" viewBox="0 0 ${W} ${H}" role="img" aria-label="Predicted burnout score by weekly work hours">${[0, 2.5, 5, 7.5, 10].map((tick) => `<line x1="${P}" x2="${W - P}" y1="${y(tick)}" y2="${y(tick)}"></line><text x="2" y="${y(tick) + 4}">${tick}</text>`).join("")}${points.map((row) => `<circle class="${risk(row.score)}" cx="${x(Math.max(minHours, Math.min(maxHours, Number(row.hours) + jitter(row, 0)))).toFixed(1)}" cy="${y(Math.max(0, Math.min(10, Number(row.score) + jitter(row, 1)))).toFixed(1)}" r="2.5"><title>${esc(row.id || "Record")} · ${esc(row.role || "Unspecified")} · ${Number(row.hours).toFixed(1)} hours · score ${Number(row.score).toFixed(2)}</title></circle>`).join("")}<text x="${P}" y="${H - 4}">${minHours.toFixed(0)} h</text><text text-anchor="end" x="${W - P}" y="${H - 4}">${maxHours.toFixed(0)} h/week</text></svg>`;
+    };
+    if (page === "assess") {
+      return `<div class="workspace-head"><p class="analysis-state__eyebrow">Generated analysis</p><h2>Risk and role analytics</h2><p>Current results generated from the uploaded workforce dataset.</p></div>
+        <div class="workspace-kpis"><div><small>Employees analysed</small><b>${f0(total)}</b></div><div><small>Average burnout score</small><b>${Number(data.mean_burnout_score || 0).toFixed(2)}</b><span>out of 10</span></div><div><small>Elevated for review</small><b>${f0(dist.Elevated || 0)}</b><span>${Number(data.elevated_review_rate || 0).toFixed(1)}% of records</span></div></div>
+        <div class="workspace-grid"><section class="workspace-card"><h3>Risk distribution</h3>${tierVisual}</section>
+        <section class="workspace-card"><h3>Priority actions</h3>${interventions.slice(0, 3).map((item) => `<div class="workspace-action"><b>${esc(item.title || "Recommended action")}</b><span>${esc(item.description || item.action || "Review this action with the responsible manager.")}</span></div>`).join("") || `<p class="note">No intervention recommendation could be generated from these fields.</p>`}</section></div>
+        <section class="workspace-card workspace-card--wide"><div class="workspace-card__title"><div><h3>Elevated review rate by role</h3><p class="workspace-card__sub">Percentage of employees flagged for elevated review, with model-derived drivers compared with the lower-risk cohort.</p></div><label class="workspace-filter">Role <select id="risk-role-filter"><option value="">All roles</option>${roles.map((role) => `<option value="${esc(role.name)}">${esc(role.name)}</option>`).join("")}</select></label></div>${roleReviewTable(roles, "risk-role-rows")}</section>
+        ${initialBreakdown ? `<section class="workspace-card workspace-card--wide"><div class="workspace-card__title"><div><h3>Demographic &amp; workload risk breakdowns</h3><p class="workspace-card__sub">Switch categories to explore burnout patterns in the uploaded workforce data.</p></div><span>Model-generated groups</span></div><div class="breakdown-tabs" role="tablist" aria-label="Risk breakdown category">${breakdowns.map((breakdown, index) => `<button type="button" role="tab" aria-selected="${index === 0}" data-breakdown-tab="${breakdown.key}">${breakdown.label}</button>`).join("")}</div><div id="risk-breakdown-content">${breakdownContent(initialBreakdown.items)}</div></section>` : ""}
+        <div class="workspace-grid"><section class="workspace-card"><h3>Risk-tier heatmap</h3><p class="workspace-card__sub">Role-level distribution of model-assigned risk tiers.</p>${roleHeatmap()}</section><section class="workspace-card"><h3>Work mode comparison</h3><p class="workspace-card__sub">Risk profile by remote, hybrid, or onsite work mode.</p>${groupRows(modes, "Work-mode data was not included in the uploaded file.")}</section></div>
+        <section class="workspace-card workspace-card--wide"><h3>Workload versus predicted risk</h3><p class="workspace-card__sub">The score model output by weekly work hours. This shows association in the uploaded data, not a causal effect.</p>${workloadScatter()}</section>
+        <section class="workspace-card workspace-card--wide"><h3>Workload pattern</h3><p class="workspace-card__sub">Score comparison across weekly working-hour bands.</p>${groupRows(duration, "Work-hour data was not included in the uploaded file.")}</section>
+        ${places.length ? `<section class="workspace-card workspace-card--wide"><h3>Location comparison</h3><p class="workspace-card__sub">Highest-volume locations included in the upload.</p>${groupRows(places, "No location data was supplied.")}</section>` : ""}${forecastWorkspace}`;
+    }
+    if (page === "forecast") {
+      const forecast = data.longitudinal?.forecast;
+      const projection = forecast?.next_projection;
+      const points = (forecast?.monthly_points || []).slice(-8);
+      const chart = points.length ? (() => {
+        const values = points.flatMap((point) => [point.forecast_predicted_t1, point.future_actual_target_t1]).filter((value) => Number.isFinite(Number(value)));
+        const lo = Math.max(0, Math.min(...values) - 5), hi = Math.min(100, Math.max(...values) + 5), W = 680, H = 250, P = 34;
+        const x = (index) => P + index * ((W - P * 2) / Math.max(1, points.length - 1));
+        const y = (value) => H - P - ((Number(value) - lo) / Math.max(1, hi - lo)) * (H - P * 2);
+        const line = (field) => points.map((point, index) => `${index ? "L" : "M"}${x(index).toFixed(1)} ${y(point[field]).toFixed(1)}`).join(" ");
+        const mae = Number(forecast?.benchmarks?.ridge?.mae || 0);
+        const band = `${points.map((point, index) => `${index ? "L" : "M"}${x(index).toFixed(1)} ${y(Math.min(hi, Number(point.forecast_predicted_t1) + mae)).toFixed(1)}`).join(" ")} ${points.slice().reverse().map((point, reverseIndex) => { const index = points.length - 1 - reverseIndex; return `L${x(index).toFixed(1)} ${y(Math.max(lo, Number(point.forecast_predicted_t1) - mae)).toFixed(1)}`; }).join(" ")} Z`;
+        return `<div class="workspace-line-legend"><span class="forecast"></span>Model forecast <span class="actual"></span>Observed outcome <span class="forecast-band"></span>±${mae.toFixed(1)} MAE evaluation band</div><svg class="workspace-line-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Monthly model forecasts compared with observed CBI scores">${[0, .25, .5, .75, 1].map((part) => { const value = lo + (hi - lo) * part; return `<line x1="${P}" x2="${W - P}" y1="${y(value)}" y2="${y(value)}"></line><text x="2" y="${y(value) + 4}">${value.toFixed(0)}</text>`; }).join("")}<path class="forecast-band" d="${band}"></path><path class="forecast" d="${line("forecast_predicted_t1")}"></path><path class="actual" d="${line("future_actual_target_t1")}"></path>${points.map((point, index) => `<circle class="forecast" cx="${x(index)}" cy="${y(point.forecast_predicted_t1)}" r="3"></circle><circle class="actual" cx="${x(index)}" cy="${y(point.future_actual_target_t1)}" r="3"><title>${esc(point.period)} · forecast ${Number(point.forecast_predicted_t1).toFixed(1)} · observed ${Number(point.future_actual_target_t1).toFixed(1)} · absolute error ${Math.abs(Number(point.forecast_predicted_t1) - Number(point.future_actual_target_t1)).toFixed(1)}</title></circle><text text-anchor="middle" x="${x(index)}" y="${H - 6}">${esc(String(point.period).slice(5))}</text>`).join("")}</svg>`;
+      })() : `<p class="note">Forecast quality points appear after enough historical transitions are available.</p>`;
+      const projectionDelta = Number(projection?.projected_mean_cbi || 0) - Number(projection?.last_observed_mean_cbi || 0);
+      const largestGap = points.length ? points.reduce((largest, point) => Math.abs(Number(point.forecast_predicted_t1) - Number(point.future_actual_target_t1)) > Math.abs(Number(largest.forecast_predicted_t1) - Number(largest.future_actual_target_t1)) ? point : largest, points[0]) : null;
+      const forecastInterpretation = `<div class="forecast-analysis-grid"><article><span class="forecast-analysis__eyebrow">Next-period signal</span><h3>${projectionDelta > .2 ? "Modest increase projected" : projectionDelta < -.2 ? "Modest improvement projected" : "Broadly stable projection"}</h3><p>The model projects <b>${Math.abs(projectionDelta).toFixed(1)} CBI points ${projectionDelta > .2 ? "higher" : projectionDelta < -.2 ? "lower" : "from"}</b> than the latest workforce average (${Number(projection?.last_observed_mean_cbi || 0).toFixed(1)} → ${Number(projection?.projected_mean_cbi || 0).toFixed(1)}).</p></article><article><span class="forecast-analysis__eyebrow">Reliability context</span><h3>Use as a planning range</h3><p>The <b>${Number(projection?.interval_95_lower || 0).toFixed(1)}–${Number(projection?.interval_95_upper || 0).toFixed(1)}</b> range reflects substantial individual variation. It is not a diagnosis or a certainty for any employee.</p></article><article><span class="forecast-analysis__eyebrow">Largest observed miss</span><h3>${largestGap ? esc(largestGap.period) : "Not available"}</h3><p>${largestGap ? `The forecast differed from the recorded mean by <b>${Math.abs(Number(largestGap.forecast_predicted_t1) - Number(largestGap.future_actual_target_t1)).toFixed(1)} CBI points</b>; use this as a practical uncertainty reminder.` : "More historical transition points are needed for this diagnostic."}</p></article></div>`;
+      const monthlyReview = points.length ? `<section class="workspace-card workspace-card--wide forecast-review"><div class="workspace-card__title"><div><h3>Monthly forecast review</h3><p class="workspace-card__sub">Back-tested predictions against recorded outcomes. Error is absolute difference in CBI points.</p></div><span>${f0(points.length)} held-out monthly points</span></div><div class="forecast-review__table"><div><span>Period</span><span>Forecast</span><span>Observed</span><span>Error</span><span>Interpretation</span></div>${points.map((point) => { const diff = Number(point.future_actual_target_t1) - Number(point.forecast_predicted_t1); return `<div><b>${esc(point.period)}</b><span>${Number(point.forecast_predicted_t1).toFixed(1)}</span><span>${Number(point.future_actual_target_t1).toFixed(1)}</span><strong class="${Math.abs(diff) <= Number(forecast?.benchmarks?.ridge?.mae || 0) ? "is-good" : "is-watch"}">${Math.abs(diff).toFixed(1)}</strong><small>${diff > .3 ? "Observed above forecast" : diff < -.3 ? "Observed below forecast" : "Close to forecast"}</small></div>`; }).join("")}</div></section>` : "";
+      if (!data.longitudinal?.available || !projection) return `<div class="workspace-head"><p class="analysis-state__eyebrow">Forecast unavailable</p><h2>Trends &amp; forecast</h2><p>Upload compatible employee-level monthly history to unlock the trained forecast model.</p></div>${forecastWorkspace}`;
+      return `<div class="workspace-head"><p class="analysis-state__eyebrow">Trained longitudinal model</p><h2>Trends &amp; forecast</h2><p>Monthly CBI trajectory, next-period projection, and held-out forecast quality from the uploaded history.</p></div><div class="workspace-kpis"><div><small>Latest observed CBI</small><b>${Number(projection.last_observed_mean_cbi || 0).toFixed(1)}</b><span>${esc(projection.last_observed_period || "latest period")}</span></div><div><small>Next-month forecast</small><b>${Number(projection.projected_mean_cbi || 0).toFixed(1)}</b><span>${esc(projection.forecast_period || "next period")}</span></div><div><small>Ridge model MAE</small><b>${Number(forecast.benchmarks?.ridge?.mae || 0).toFixed(1)}</b><span>held-out employee transitions</span></div></div><section class="workspace-card workspace-card--wide"><div class="workspace-card__title"><div><h3>Forecast versus observed trend</h3><p class="workspace-card__sub">Each point compares a prediction made before the next month with the recorded CBI outcome.</p></div><span>CBI 0–100</span></div>${chart}</section>${forecastInterpretation}${monthlyReview}<div class="workspace-grid"><section class="workspace-card"><h3>Forecast range</h3><p class="note">The workforce forecast is <b>${Number(projection.projected_mean_cbi || 0).toFixed(1)}</b> CBI points. Individual 95% range: <b>${Number(projection.interval_95_lower || 0).toFixed(1)}–${Number(projection.interval_95_upper || 0).toFixed(1)}</b>.</p></section><section class="workspace-card"><h3>Model quality</h3><p class="note">${esc(forecast.forecast_insight?.benchmark_comparison || "Model performance is reported from held-out employee transitions.")}</p><p class="note">${esc(forecast.leakage_safeguard || "")}</p></section></div>`;
+    }
+    if (page === "interventions") {
+      return `<div class="workspace-head"><p class="analysis-state__eyebrow">Generated analysis</p><h2>Recommended supportive interventions</h2><p>These scenarios estimate the potential change in the uploaded workforce data. They support human decisions; they do not make them.</p></div>
+        <div class="workspace-kpis"><div><small>Actions generated</small><b>${f0(interventions.length)}</b><span>based on present workforce fields</span></div><div><small>Elevated records</small><b>${f0(dist.Elevated || 0)}</b><span>priority for human review</span></div><div><small>Scored workforce</small><b>${f0(total)}</b><span>valid uploaded records</span></div></div>
+        <div class="workspace-grid"><section class="workspace-card"><h3>Review priority</h3>${tierVisual}</section><section class="workspace-card"><h3>Role risk drivers</h3><p class="workspace-card__sub">Drivers are calculated from patterns in the uploaded rows.</p>${groupRows(roles.slice(0, 5), "No role breakdown is available.", true)}</section></div>
+        <section class="workspace-card workspace-card--wide"><div class="workspace-card__title"><h3>Scenario options</h3><span>Projected, not guaranteed outcomes</span></div><div class="workspace-interventions">${interventions.map((item) => `<article class="workspace-intervention"><div><span class="workspace-intervention__badge">${esc(item.badge || item.effort || "Policy")}</span><h4>${esc(item.title || "Recommended action")}</h4><p>${esc(item.description || item.action || "Review the relevant workload pattern with the responsible manager.")}</p></div><dl><div><dt>Estimated score change</dt><dd>−${Number(item.score_drop || 0).toFixed(2)} pts</dd></div><div><dt>Employees potentially protected</dt><dd>${f0(item.protected_employees || 0)}</dd></div></dl><a class="workspace-link" href="#/">View associated risk drivers</a></article>`).join("") || `<p class="note">No intervention scenario could be generated from the uploaded fields.</p>`}</div></section>`;
+    }
+    if (page === "people") {
+      const roleOptions = roles.map((role) => `<option value="${esc(role.name)}">${esc(role.name)}</option>`).join("");
+      const modeOptions = modes.map((mode) => `<option value="${esc(mode.name)}">${esc(mode.name)}</option>`).join("");
+      return `<div class="workspace-head"><p class="analysis-state__eyebrow">Generated analysis</p><h2>Employee review</h2><p>Filter, sort, and page through all scored records in the uploaded dataset.</p></div>
+        <div class="workspace-kpis"><div><small>Scored records</small><b>${f0(total)}</b></div><div><small>Elevated reviews</small><b>${f0(dist.Elevated || 0)}</b></div><div><small>Moderate reviews</small><b>${f0(dist.Moderate || 0)}</b></div></div>
+        <div class="workspace-grid"><section class="workspace-card"><h3>Review queue composition</h3>${tierVisual}</section><section class="workspace-card"><h3>How to use this table</h3><p class="note">Filter to focus a review conversation. Scores are decision-support signals, not diagnoses or automatic employment decisions.</p></section></div>
+        <section class="workspace-card workspace-card--wide employee-review-card"><div class="workspace-card__title"><div><h3>Full employee burnout records</h3><p class="workspace-card__sub">Filterable, sortable, paginated view of every employee scored by the trained models.</p></div><button type="button" class="btn btn--small btn--ghost" id="employee-review-export">Export CSV</button></div><div class="employee-review-filters"><input id="employee-review-search" type="search" placeholder="Search employee ID"><select id="employee-review-tier"><option value="">All risk tiers</option><option>Elevated</option><option>Moderate</option><option>Low</option></select><select id="employee-review-role"><option value="">All roles</option>${roleOptions}</select><select id="employee-review-mode"><option value="">All work modes</option>${modeOptions}</select><input id="employee-review-city" type="search" placeholder="Filter by city"><select id="employee-review-sort"><option value="score:desc">Highest model score</option><option value="score:asc">Lowest model score</option><option value="prob:desc">Highest risk probability</option><option value="hours:desc">Most weekly hours</option><option value="id:asc">Employee ID A–Z</option></select><select id="employee-review-page-size" aria-label="Rows per page"><option value="25">25 rows</option><option value="50">50 rows</option><option value="100">100 rows</option></select><button type="button" class="btn btn--small btn--ghost" id="employee-review-reset">Reset</button></div><p class="employee-review-summary" id="employee-review-summary">Loading employee records…</p><div class="employee-review-table-wrap"><table class="employee-review-table"><thead><tr><th>Employee ID</th><th>Role</th><th>Work mode</th><th>Gender</th><th>Hours/wk</th><th>Stress</th><th>OT hrs</th><th>Score</th><th>Risk prob.</th><th>Band</th></tr></thead><tbody id="employee-review-rows"><tr><td colspan="10">Loading scored records…</td></tr></tbody></table></div><div class="employee-review-pager" id="employee-review-pager"></div></section>`;
+    }
+    return `<div class="workspace-head"><p class="analysis-state__eyebrow">Model record</p><h2>Model and data coverage</h2><p>These results were generated from the dataset uploaded in this browser session.</p></div>
+      <div class="workspace-kpis"><div><small>Records scored</small><b>${f0(total)}</b></div><div><small>Score model</small><b>Regression</b><span>continuous 0–10 score</span></div><div><small>Risk model</small><b>Classifier</b><span>elevated-risk probability</span></div></div>
+      <div class="workspace-grid"><section class="workspace-card"><h3>Scoring output</h3><p class="note">The model estimates a workforce burnout score and a calibrated elevated-risk probability for every valid row.</p><p class="note">Mean elevated-risk probability: <b>${Number(data.mean_elevated_probability || 0).toFixed(1)}%</b></p></section><section class="workspace-card"><h3>Available breakdowns</h3><p class="note">${roles.length ? `${f0(roles.length)} role groups` : "No role groups"} · ${(data.work_mode_analysis || []).length ? `${f0(data.work_mode_analysis.length)} work modes` : "no work-mode groups"} · ${(data.state_analysis || data.location_analysis || []).length ? "location breakdown available" : "no location field"}</p></section></div>`;
+  }
+
+  function wireGeneratedWorkspace(page, data) {
+    if (page === "assess") {
+      const filter = $("#risk-role-filter"), destination = $("#risk-role-rows");
+      let selectedTier = "";
+      const renderRoles = () => {
+        const selected = filter.value;
+        const roles = (data.role_analysis || []).filter((role) => (!selected || role.name === selected) && (!selectedTier || Number(role.risk_tiers?.[selectedTier] || 0) > 0));
+        destination.innerHTML = roleReviewRows(roles);
+      };
+      filter?.addEventListener("change", renderRoles);
+      $$('[data-tier-filter]').forEach((button) => button.addEventListener("click", () => {
+        const same = selectedTier === button.dataset.tierFilter;
+        selectedTier = same ? "" : button.dataset.tierFilter;
+        $$('[data-tier-filter]').forEach((item) => item.classList.toggle("is-selected", item.dataset.tierFilter === selectedTier));
+        renderRoles();
+        destination?.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+      }));
+      const breakdownContentNode = $("#risk-breakdown-content");
+      const breakdownItems = {
+        mode: data.work_mode_analysis || [],
+        duration: data.duration_analysis || [],
+        gender: data.gender_analysis || [],
+        geo: data.state_analysis?.length ? data.state_analysis.slice(0, 8) : (data.location_analysis || []).slice(0, 8),
+      };
+      $$('[data-breakdown-tab]').forEach((button) => button.addEventListener("click", () => {
+        $$('[data-breakdown-tab]').forEach((item) => {
+          const selected = item === button;
+          item.classList.toggle("is-active", selected);
+          item.setAttribute("aria-selected", String(selected));
+        });
+        if (breakdownContentNode) breakdownContentNode.innerHTML = breakdownContent(breakdownItems[button.dataset.breakdownTab] || []);
+      }));
+    }
+    if (page === "people") {
+      const search = $("#employee-review-search"), tier = $("#employee-review-tier"), role = $("#employee-review-role"), mode = $("#employee-review-mode"), city = $("#employee-review-city"), sort = $("#employee-review-sort"), pageSize = $("#employee-review-page-size"), destination = $("#employee-review-rows"), summary = $("#employee-review-summary"), pager = $("#employee-review-pager");
+      let reviewPage = 0, reviewRequest = 0;
+      const loadPage = async () => {
+        if (!destination) return;
+        const [sortCol, sortDir] = (sort?.value || "score:desc").split(":");
+        const size = Number(pageSize?.value || 25);
+        const params = new URLSearchParams({ page: String(reviewPage), page_size: String(size), search: search?.value.trim() || "", filter_band: tier?.value || "", filter_role: role?.value || "", filter_mode: mode?.value || "", filter_city: city?.value.trim() || "", sort_col: sortCol, sort_dir: sortDir });
+        const requestId = ++reviewRequest;
+        destination.innerHTML = `<tr><td colspan="10" class="employee-review-loading">Loading scored records…</td></tr>`;
+        try {
+          const response = await fetch(`/api/employee-table?${params}`);
+          const payload = await response.json();
+          if (!response.ok || payload.error) throw new Error(payload.error || "Could not load employee records.");
+          if (requestId !== reviewRequest) return;
+          const pageRows = payload.rows || [], total = Number(payload.total || 0);
+          if (!pageRows.length && reviewPage > 0 && total) { reviewPage = Math.max(0, Math.ceil(total / size) - 1); return loadPage(); }
+          const start = total ? reviewPage * size : 0, end = Math.min(start + pageRows.length, total);
+          summary.textContent = total ? `Showing ${f0(start + 1)}–${f0(end)} of ${f0(total)} employees` : "No employees match the selected filters.";
+          destination.innerHTML = pageRows.length ? pageRows.map((row) => { const level = row.band || "Low"; return `<tr><td><b>${esc(row.id || "—")}</b></td><td>${esc(row.role || "—")}</td><td>${esc(row.mode || "—")}</td><td>${esc(row.gender || "—")}</td><td>${row.hours == null ? "—" : `${Number(row.hours).toFixed(1)}h`}</td><td>${row.stress == null ? "—" : Number(row.stress).toFixed(1)}</td><td>${row.overtime == null ? "—" : `${Number(row.overtime).toFixed(1)}h`}</td><td><b class="employee-review-score">${Number(row.score || 0).toFixed(2)}</b></td><td>${row.prob == null ? "—" : `${Number(row.prob).toFixed(1)}%`}</td><td><em class="role-risk-pill is-${String(level).toLowerCase()}">${esc(level)}</em></td></tr>`; }).join("") : `<tr><td colspan="10" class="employee-review-loading">No employees match the selected filters.</td></tr>`;
+          const pages = Math.max(1, Math.ceil(total / size));
+          const indexes = Array.from({ length: pages }, (_, index) => index).filter((index) => index === 0 || index === pages - 1 || Math.abs(index - reviewPage) <= 1);
+          pager.innerHTML = total ? `<button type="button" class="btn btn--small btn--ghost" data-review-page="${reviewPage - 1}" ${reviewPage === 0 ? "disabled" : ""}>Previous</button>${indexes.map((index, position) => `${position && index - indexes[position - 1] > 1 ? '<span>…</span>' : ''}<button type="button" class="btn btn--small btn--ghost ${index === reviewPage ? "is-current" : ""}" data-review-page="${index}" ${index === reviewPage ? 'aria-current="page"' : ""}>${index + 1}</button>`).join("")}<button type="button" class="btn btn--small btn--ghost" data-review-page="${reviewPage + 1}" ${reviewPage >= pages - 1 ? "disabled" : ""}>Next</button>` : "";
+          $$('[data-review-page]').forEach((button) => button.addEventListener("click", () => { reviewPage = Number(button.dataset.reviewPage); loadPage(); }));
+        } catch (error) { summary.textContent = "Employee roster could not be loaded."; destination.innerHTML = `<tr><td colspan="10" class="employee-review-loading">${esc(error.message)}</td></tr>`; pager.innerHTML = ""; }
+      };
+      const resetPage = () => { reviewPage = 0; loadPage(); };
+      [search, city].forEach((field) => field?.addEventListener("input", resetPage));
+      [tier, role, mode, sort, pageSize].forEach((field) => field?.addEventListener("change", resetPage));
+      $("#employee-review-reset")?.addEventListener("click", () => { [search, tier, role, mode, city, sort, pageSize].forEach((field) => { if (field) field.selectedIndex !== undefined ? field.selectedIndex = 0 : field.value = ""; }); resetPage(); });
+      $("#employee-review-export")?.addEventListener("click", () => { const [sortCol, sortDir] = (sort?.value || "score:desc").split(":"); const params = new URLSearchParams({ export: "1", search: search?.value.trim() || "", filter_band: tier?.value || "", filter_role: role?.value || "", filter_mode: mode?.value || "", filter_city: city?.value.trim() || "", sort_col: sortCol, sort_dir: sortDir }); window.location.href = `/api/employee-table?${params}`; });
+      loadPage();
+    }
+  }
 
   function renderAccount() {
     const u = user(), src = S.loop?.source || {}, per = S.loop?.periods || [];
@@ -1758,13 +2399,23 @@
     document.body.classList.toggle("user-demo", u?.kind === "demo");
     document.body.classList.toggle("user-company", u?.kind === "company");
     document.body.classList.toggle("is-locked", locked());
+    document.body.classList.toggle("uploaded-analysis", hasUploadedAnalysis());
     $("#acct").hidden = !u;
-    $("#acct").innerHTML = u ? `<span class="acct__who"><small>${u.kind === "demo" ? "demo" : "company"}</small>${esc(u.name)}</span><button type="button" class="btn btn--small btn--ghost" data-signout>Sign out</button>` : "";
+    $("#acct").innerHTML = u ? `<span class="acct__who">${esc(u.name)}</span><button type="button" class="btn btn--small btn--ghost" data-signout>Sign out</button>` : "";
     const range = per.length ? `${esc(monthLong(per[0]))} – ${esc(monthLong(per[per.length - 1]))}` : "";
     $("#start").innerHTML = !u ? "" : locked()
-      ? `<p class="note">Signed in as <b>${esc(u.name)}</b>. Add your three files below to run the loop.</p>`
-      : `<p class="note">Signed in as <b>${esc(u.name)}</b> · ${f0(src.employees)} people · ${range}</p><a class="btn" href="#/">Open this month →</a>`;
+      ? `<p class="note">Signed in as <b>${esc(u.name)}</b>. Upload one CSV, or up to three related files, to run the trained models.</p>`
+      : `<p class="note">Signed in as <b>${esc(u.name)}</b>. Your uploaded data has been analysed with the trained models.</p>`;
     renderAddData();
+    renderAnalysisAvailability();
+  }
+
+  function separateSignInPage() {
+    const signInPage = $('[data-page="signin"]');
+    [".t-hero", ".t-signin", ".t-loop"].forEach((selector) => {
+      const tile = $(`[data-page="data"] ${selector}`);
+      if (tile) signInPage.append(tile);
+    });
   }
   // add data, every month or once a year: one monthly.csv (plus support actions if any) after the latest month
   function renderAddData() {
@@ -1773,7 +2424,7 @@
     const per = S.loop.periods, latest = per[per.length - 1], nxt = nextPeriod(latest), demo = src.kind === "demo_live";
     const offer = demo && src.next_period
       ? `<p class="note">Demo: the ${esc(monthLong(src.next_period))} surveys are ready as a file. <a href="${demoFile(src.next_period)}" download>Download monthly_${esc(src.next_period)}.csv</a>, then drop it below.</p>`
-      : demo ? `<p class="note">Demo year complete · sign out to restart from November 2025.</p>` : "";
+      : demo ? `<p class="note">No additional periods are available in the current dataset.</p>` : "";
     box.innerHTML = `
       <div class="tile__row"><h2 class="tile__title"><span>add data · every month or year</span>Add new months</h2>
         ${src.kind === "upload" ? `<button type="button" class="more" data-replace>replace all files</button>` : ""}</div>
@@ -1905,25 +2556,24 @@
 
   async function signOut() {
     setUser(null);
+    setUploadedAnalysis(false);
     renderAccount();
-    location.hash = "#/data";
-    toast("Signed out. Resetting the demo to November 2025...");
-    try { await post("/api/loop/demo-start", {}); await loadData(); toast("Signed out. The demo is back to November 2025."); }
-    catch (e) { toast(e.message); }
+    location.hash = "#/signin";
+    toast("Signed out.");
   }
   function wireAccount() {
     $("#acct").addEventListener("click", (e) => { if (e.target.closest("[data-signout]")) signOut(); });
-    $("[data-signin=demo]").addEventListener("click", async (e) => {
+    $("[data-signin=demo]")?.addEventListener("click", async (e) => {
       const b = e.currentTarget;
       b.disabled = true; b.textContent = "Signing in...";
       try {
-        await post("/api/loop/demo-start", {});
         setUser({ kind: "demo", name: "Demo" });
-        await loadData();
-        location.hash = "#/";
-        toast("Demo data runs to November 2025. Add December from the month bar.");
+        setUploadedAnalysis(false);
+        renderAccount();
+        location.hash = "#/data";
+        toast("Upload a dataset to run the trained models.");
       } catch (err) { toast(err.message); }
-      b.disabled = false; b.textContent = "Sign in to the demo";
+      b.disabled = false; b.textContent = "Continue to data upload";
     });
     $("#signin-company").addEventListener("submit", (e) => {
       e.preventDefault();
@@ -1931,8 +2581,10 @@
       if (!name) return;
       setUser({ kind: "company", name });
       renderAccount();
+      location.hash = "#/data";
       route();
-      $(".upload-block").scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+      const _uploadTile = $("#company-upload-tile") || $(".upload-block");
+      if (_uploadTile) setTimeout(() => _uploadTile.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" }), 80);
     });
   }
 
@@ -1940,7 +2592,7 @@
     const [path] = location.hash.replace(/^#\/?/, "").split("?");
     const parts = path.split("/");
     const page = PAGES[parts[0]] || "assess";
-    if (locked() && page !== "data") { location.hash = "#/data"; return; }
+    if (!user() && page !== "signin") { location.hash = "#/signin"; return; }
     $$(".page").forEach((p) => (p.hidden = p.dataset.page !== page));
     $$(".bar__nav a").forEach((a) => a.classList.toggle("is-on", a.dataset.page === (NAV_OF[page] || page)));
     $$(".nav-tab").forEach((a) => a.classList.toggle("active", a.dataset.page === (NAV_OF[page] || page)));
@@ -1959,10 +2611,12 @@
   }
 
   async function init() {
+    separateSignInPage();
     cycleWord();
     embers($("#embers"), 1);
     watch($("#personchart"), drawPerson);
     wireData();
+    wireCompanyAnalysis();
     wireFilters();
     $("#month-select").addEventListener("change", (e) => loadData(e.target.value));
     $("#month-actions").addEventListener("click", (e) => { const b = e.target.closest("[data-act]"); if (b) monthAction(b.dataset.act); });
@@ -1992,8 +2646,10 @@
     });
     wireConnectors();
     renderAccount();
-    // signed out: the Data & model page is the landing page with the sign-in
-    if (!user()) location.hash = "#/data";
+    // Signed-out visitors begin at the dedicated sign-in page. Company users go to Data & Model to upload their files.
+    const _u0 = user();
+    if (!_u0) location.hash = "#/signin";
+    else location.hash = "#/data";
     route();
     await loadData();
   }

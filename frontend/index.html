@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -18,31 +18,29 @@
       <a class="bar__brand" href="#/">
         <div class="ember-dot">B</div>
         <div class="dots"><i></i><i></i><i></i></div>
-        BurnoutIQ <b>loop</b>
+        BurnoutIQ
       </a>
     </div>
     <div class="bar__cell">
       <div class="dots"><i></i></div>
     </div>
     <nav class="bar__nav stepper" id="bar-nav" aria-label="Main navigation">
-      <a href="#/" data-page="assess" data-count="assess" class="is-on"><span>01</span>Assess<small></small></a>
-      <a href="#/people" data-page="people" data-count="people"><span>02/03</span>People<small></small></a>
-      <a href="#/model" data-page="model"><span>04/05</span>Model</a>
-      <a href="#/data" data-page="data" class="stepper__data"><span>&#8593;</span>Data &amp; model</a>
+      <a href="#/data" data-page="data" class="stepper__data"><span>&#128193;</span>File Analysis</a>
+      <a href="#/" data-page="assess" class="is-on"><span>&#128202;</span>Risk &amp; Role Analytics</a>
+      <a href="#/forecast" data-page="forecast"><span>&#128200;</span>Trends &amp; Forecast</a>
+      <a href="#/interventions" data-page="interventions"><span>&#9825;</span>AI Interventions</a>
+      <a href="#/people" data-page="people"><span>&#128101;</span>Employee Review &amp; Table</a>
     </nav>
     <div class="bar__cell bar__acct" id="acct" hidden></div>
     <div class="bar__cell bar__meta" id="meta" style="display:none"><span class="pulse"></span><span class="bar__metatext">connecting&#8230;</span></div>
   </header>
 
-  <!-- MONTH BAND -->
-  <div class="month" id="month">
-    <div class="month__now">
-      <small>Reporting period</small>
-      <b id="month-label">&#8212;</b>
-    </div>
-    <label class="month__pick"><span class="sr">View month</span><select id="month-select" aria-label="Month to view"></select></label>
-    <div class="month__src" id="month-src"></div>
-    <div class="month__actions" id="month-actions"></div>
+  <!-- Internal reporting-period hooks. The dashboard does not expose demo period controls. -->
+  <div id="month" hidden aria-hidden="true">
+    <span id="month-label"></span>
+    <select id="month-select" aria-label="Hidden reporting-period selector"></select>
+    <span id="month-src"></span>
+    <div id="month-actions"></div>
   </div>
 
   <div class="pages">
@@ -66,6 +64,12 @@
         <div class="tile__body" id="help"></div>
       </div>
     </section>
+
+    <!-- PAGE: AI INTERVENTIONS -->
+    <section class="page page--interventions" data-page="interventions" aria-label="AI Interventions" hidden></section>
+
+    <!-- PAGE: TRENDS & FORECAST -->
+    <section class="page page--forecast" data-page="forecast" aria-label="Trends and Forecast" hidden></section>
 
     <!-- PAGE: PEOPLE -->
     <section class="page page--people" data-page="people" aria-label="Employees" hidden>
@@ -213,6 +217,377 @@
 
     <!-- PAGE: DATA & MODEL -->
     <section class="page page--data" data-page="data" aria-label="Data and model" hidden>
+
+      <header class="enterprise-pagehead">
+        <div><p class="enterprise-pagehead__crumb">People operations / wellbeing analytics</p><h1>Workforce wellbeing overview</h1><p>Upload workforce data to assess risk across roles, working patterns, and employee groups.</p></div>
+        <div class="enterprise-pagehead__meta"><small>Reporting period</small><b>Current workforce snapshot</b><span>Internal use only</span></div>
+      </header>
+
+      <h2 class="enterprise-section-title">Company file analysis</h2>
+
+            <!-- MULTI-FILE COMPANY ANALYSIS UPLOAD TILE -->
+      <div class="tile t-company-analysis" id="company-upload-tile">
+        <div class="c-upload-header">
+          <div>
+            <h3 class="c-upload-title">Upload workforce data</h3>
+            <p class="c-upload-subtitle">Choose one CSV, or up to three related CSV files. We will use the monthly data to run the trained models.</p>
+          </div>
+          <span class="c-badge-admin">CSV upload</span>
+        </div>
+
+        <div class="enterprise-upload-grid">
+          <section class="enterprise-requirements">
+            <h4>Data requirements</h4>
+            <p>Files are processed locally for this session. Upload one workforce CSV, or add up to two related CSV files for richer breakouts.</p>
+            <p class="enterprise-requirements__label">Required for analysis</p>
+            <div class="enterprise-chips"><code>work_hours_per_week</code><code>overtime_hours</code><code>meetings_per_day</code><code>job_role</code><code>work_mode</code></div>
+            <p class="enterprise-requirements__label">Optional for additional breakdowns</p>
+            <div class="enterprise-chips"><code>employee_id</code><code>city</code><code>state</code><code>stress_level</code><code>sleep_hours</code><code>manager_support</code></div>
+          </section>
+        <div class="simple-upload" id="simple-upload">
+          <input type="file" id="company-files" accept=".csv" multiple hidden>
+          <button type="button" class="simple-upload__drop" id="company-files-button">
+            <span class="simple-upload__icon">↑</span>
+            <span><b>Choose CSV files</b><small>Drag files here or browse &middot; up to 3 files</small></span>
+          </button>
+          <div class="simple-upload__files" id="company-files-list">No files selected</div>
+          <div class="c-status-msg" id="company-upload-status"><span class="c-status-dot"></span> Choose a CSV containing monthly workforce data.</div>
+          <p class="tile__fine">A single monthly workforce CSV is enough to analyse. If you also have them, add employees.csv and interventions.csv.</p>
+          <div class="simple-upload__actions">
+            <button type="button" class="btn" id="btn-run-company-analysis" disabled>Run analysis</button>
+          </div>
+          <p class="enterprise-privacy">Files are processed locally in this browser session and are not retained by the service.</p>
+        </div>
+        </div>
+
+        <!-- File Schema Reference -->
+        <div class="c-schema-grid">
+          <div class="c-schema-card">
+            <div class="c-schema-head">
+              <span class="c-schema-icon">&#128100;</span>
+              <div>
+                <div class="c-schema-name">employees.csv</div>
+                <div class="c-schema-freq">Once, then when people join or move</div>
+              </div>
+            </div>
+            <div class="c-group-label">REQUIRED COLUMNS</div>
+            <div class="c-pill-chips c-chips-required">
+              <span class="c-chip">employee_id</span>
+              <span class="c-chip">department</span>
+            </div>
+            <div class="c-group-label" style="margin-top:8px">OPTIONAL &mdash; ENABLE BREAKDOWNS</div>
+            <div class="c-pill-chips c-chips-optional">
+              <span class="c-chip">team_id</span>
+              <span class="c-chip">role_type</span>
+              <span class="c-chip">contracted_hours_per_week</span>
+            </div>
+          </div>
+
+          <div class="c-schema-card">
+            <div class="c-schema-head">
+              <span class="c-schema-icon">&#128203;</span>
+              <div>
+                <div class="c-schema-name">monthly.csv</div>
+                <div class="c-schema-freq">Every month (or a full year at once)</div>
+              </div>
+            </div>
+            <div class="c-group-label">REQUIRED COLUMNS</div>
+            <div class="c-pill-chips c-chips-required">
+              <span class="c-chip">employee_id</span>
+              <span class="c-chip">period</span>
+              <span class="c-chip">cbi_w1</span>
+              <span class="c-chip">cbi_w2</span>
+              <span class="c-chip">cbi_w3</span>
+              <span class="c-chip">cbi_w4</span>
+              <span class="c-chip">cbi_w5</span>
+              <span class="c-chip">cbi_w6</span>
+              <span class="c-chip">cbi_w7</span>
+            </div>
+            <div class="c-group-label" style="margin-top:8px">OPTIONAL &mdash; IMPROVE FORECASTS</div>
+            <div class="c-pill-chips c-chips-optional">
+              <span class="c-chip">work_hours_per_week</span>
+              <span class="c-chip">overtime_hours</span>
+              <span class="c-chip">meetings_per_day</span>
+            </div>
+          </div>
+
+          <div class="c-schema-card">
+            <div class="c-schema-head">
+              <span class="c-schema-icon">&#128737;</span>
+              <div>
+                <div class="c-schema-name">interventions.csv</div>
+                <div class="c-schema-freq">Optional &middot; log support actions</div>
+              </div>
+            </div>
+            <div class="c-group-label">REQUIRED COLUMNS (if uploading)</div>
+            <div class="c-pill-chips c-chips-required">
+              <span class="c-chip">employee_id</span>
+              <span class="c-chip">intervention_type</span>
+              <span class="c-chip">referral_period</span>
+              <span class="c-chip">start_date</span>
+              <span class="c-chip">planned_end_date</span>
+              <span class="c-chip">completion_status</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3-File Drop Zones -->
+        <div class="c-three-drops">
+          <div class="c-drop3-slot" id="slot-employees">
+            <div class="c-drop3-label"><span class="c-req-star">&#9733;</span> employees.csv</div>
+            <div class="c-drop3zone" id="dz-employees">
+              <input type="file" id="fi-employees" accept=".csv" style="display:none">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              <div class="c-drop3-hint">Drop file or <u>browse</u></div>
+              <div class="c-drop3-fname" id="fn-employees"></div>
+            </div>
+            <a class="c-tpl-link" href="/templates/employees_template.csv" download>&#8595; template</a>
+          </div>
+
+          <div class="c-drop3-slot" id="slot-monthly">
+            <div class="c-drop3-label"><span class="c-req-star">&#9733;</span> monthly.csv</div>
+            <div class="c-drop3zone" id="dz-monthly">
+              <input type="file" id="fi-monthly" accept=".csv" style="display:none">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              <div class="c-drop3-hint">Drop file or <u>browse</u></div>
+              <div class="c-drop3-fname" id="fn-monthly"></div>
+            </div>
+            <a class="c-tpl-link" href="/templates/monthly_template.csv" download>&#8595; template</a>
+          </div>
+
+          <div class="c-drop3-slot" id="slot-interventions">
+            <div class="c-drop3-label">interventions.csv <span class="c-opt-badge">optional</span></div>
+            <div class="c-drop3zone" id="dz-interventions">
+              <input type="file" id="fi-interventions" accept=".csv" style="display:none">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              <div class="c-drop3-hint">Drop file or <u>browse</u></div>
+              <div class="c-drop3-fname" id="fn-interventions"></div>
+            </div>
+            <a class="c-tpl-link" href="/templates/interventions_template.csv" download>&#8595; template</a>
+          </div>
+        </div>
+
+        <!-- Status + Submit -->
+        <div class="c-upload-footer legacy-upload">
+          <div class="c-status-msg" id="company-upload-status-legacy">
+            <span class="c-status-dot"></span> Select one to three CSV files to continue.
+          </div>
+        </div>
+        <div class="c-privacy-foot legacy-upload">
+          <span class="c-lock-icon">&#128274;</span> Files are processed in-memory on this server and dropped when you sign out.
+        </div>
+      </div>
+
+<!-- COMPANY ANALYSIS RESULTS DASHBOARD (UNFOLDS AFTER ANALYSIS) -->
+      <div class="tile t-company-results" id="company-analysis-results" style="display:none">
+        <!-- Top Bar -->
+        <div class="res-top-bar">
+          <div class="res-title-area">
+            <div class="res-tag">MULTI-MODEL WORKFORCE REPORT</div>
+            <h3 class="res-heading" id="res-heading">Company Workforce Risk Assessment</h3>
+            <div class="res-meta" id="res-meta">All predictions computed by trained ML pipelines</div>
+          </div>
+          <div class="res-actions">
+            <button type="button" class="btn btn--small btn--ghost" id="btn-export-scored-csv">📥 Export Scored CSV</button>
+            <button type="button" class="btn btn--small btn--ghost" id="btn-reupload">Upload Another File</button>
+          </div>
+        </div>
+
+        <nav class="res-report-nav" aria-label="Generated report sections">
+          <a href="#report-risk">Risk distribution</a>
+          <a href="#report-roles">Role comparison</a>
+          <a href="#report-workload">Workload patterns</a>
+          <a href="#report-modes">Work modes</a>
+          <a href="#report-location">Location</a>
+          <a href="#report-forecast" id="report-forecast-link" style="display:none">Forecast</a>
+          <a href="#report-actions">Recommended actions</a>
+          <a href="#report-roster">Scored roster</a>
+        </nav>
+
+        <!-- KPI Metrics Grid -->
+        <div class="res-kpi-grid">
+          <div class="res-kpi-card">
+            <div class="res-kpi-label">TOTAL WORKFORCE</div>
+            <div class="res-kpi-val" id="kpi-total-employees">0</div>
+            <div class="res-kpi-sub">Employee records scored</div>
+          </div>
+          <div class="res-kpi-card">
+            <div class="res-kpi-label">AVERAGE BURNOUT SCORE</div>
+            <div class="res-kpi-val" id="kpi-avg-score">0.00</div>
+            <div class="res-kpi-badge res-badge-low" id="kpi-score-badge">Low Risk</div>
+          </div>
+          <div class="res-kpi-card">
+            <div class="res-kpi-label">ELEVATED RISK REVIEW</div>
+            <div class="res-kpi-val" id="kpi-elevated-rate">0.0%</div>
+            <div class="res-kpi-sub" id="kpi-elevated-count">0 employees flagged</div>
+          </div>
+          <div class="res-kpi-card">
+            <div class="res-kpi-label">AVERAGE ELEVATED-RISK LIKELIHOOD</div>
+            <div class="res-kpi-val" id="kpi-ml-confidence">0.0%</div>
+            <div class="res-kpi-sub">Average model-estimated probability across scored records</div>
+          </div>
+        </div>
+
+        <div class="res-data-quality-card" id="res-data-quality-card">
+          <div><span class="res-models-chip">DATA QUALITY</span><h4>Upload coverage</h4><p>Fields found and model inputs used for this analysis.</p></div>
+          <div class="res-data-quality-fields" id="res-data-quality-fields"></div>
+        </div>
+
+        <!-- Models in Action & Benchmarks Card -->
+        <div class="res-models-card">
+          <div class="res-models-header">
+            <div class="res-models-title">
+              <span class="res-models-chip">MODEL OUTPUT</span>
+              Models and scenario analysis used in this report
+            </div>
+            <span class="res-benchmark-badge">Continuous Score Regressor + Calibrated Risk Classifier</span>
+          </div>
+          <div class="res-models-grid">
+            <div class="res-model-item">
+              <div class="res-m-name">1. Continuous Burnout Regressor</div>
+              <div class="res-m-desc">HistGradientBoostingRegressor (0–10 Continuous Scale)</div>
+              <div class="res-m-stats">
+                <span class="m-stat"><b>Test R²:</b> 0.745</span>
+                <span class="m-stat"><b>MAE:</b> 0.422</span>
+                <span class="m-stat"><b>RMSE:</b> 0.563</span>
+                <span class="m-tag m-tag--best">Recommended</span>
+              </div>
+            </div>
+            <div class="res-model-item">
+              <div class="res-m-name">2. Elevated-Risk Classifier</div>
+              <div class="res-m-desc">Calibrated Probability Classifier (≥ 3.7 threshold / 90th percentile)</div>
+              <div class="res-m-stats">
+                <span class="m-stat"><b>ROC-AUC:</b> 0.958</span>
+                <span class="m-stat"><b>PR-AUC:</b> 0.755</span>
+                <span class="m-stat"><b>Brier Score:</b> 0.048</span>
+                <span class="m-tag m-tag--calibrated">Isotonically Calibrated</span>
+              </div>
+            </div>
+            <div class="res-model-item">
+              <div class="res-m-name">3. Counterfactual Scenario Engine</div>
+              <div class="res-m-desc">Prescriptive Policy Simulator (Overtime Cap &amp; Meeting Detox)</div>
+              <div class="res-m-stats">
+                <span class="m-stat"><b>Simulation:</b> 500 stochastic paths</span>
+                <span class="m-stat"><b>Guardrails:</b> 4 Active Policies</span>
+                <span class="m-tag m-tag--action">Prescriptive</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts Grid -->
+        <div class="res-charts-grid">
+          <!-- Chart 1: Risk Tier Distribution -->
+          <div class="res-chart-card" id="report-risk">
+            <h4 class="res-chart-title">Risk Tier Distribution</h4>
+            <p class="res-chart-subtitle">Breakdown of scored records across workforce risk tiers</p>
+            <div class="res-tier-visual">
+              <div class="res-tier-donut" id="res-tier-donut" role="img" aria-label="Workforce risk-tier distribution"></div>
+              <div class="res-tier-detail">
+                <div class="res-tier-bar" id="res-tier-bar"></div>
+                <div class="res-tier-legend" id="res-tier-legend"></div>
+                <div class="res-tier-insight" id="res-tier-insight"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Chart 2: Burnout Score & Risk by Job Role -->
+          <div class="res-chart-card" id="report-roles">
+            <h4 class="res-chart-title">Role-Based Risk Breakdown</h4>
+            <p class="res-chart-subtitle">Mean burnout score &amp; primary workload friction points by job title</p>
+            <div class="res-role-bars" id="res-role-bars"></div>
+            <div class="res-role-review" id="res-role-review"></div>
+          </div>
+
+          <!-- Chart 3: Work Hours & Overtime Escalation -->
+          <div class="res-chart-card" id="report-workload">
+            <h4 class="res-chart-title">Work Hours &amp; Overtime Escalation</h4>
+            <p class="res-chart-subtitle">Risk surge across weekly duration brackets</p>
+            <div class="res-duration-chart" id="res-duration-chart"></div>
+          </div>
+
+          <!-- Chart 4: Work Mode Dynamics -->
+          <div class="res-chart-card" id="report-modes">
+            <h4 class="res-chart-title">Work Mode Dynamics</h4>
+            <p class="res-chart-subtitle">Remote vs Hybrid vs Onsite risk comparison</p>
+            <div class="res-mode-grid" id="res-mode-grid"></div>
+          </div>
+        </div>
+
+        <!-- State / Geographic Analysis -->
+        <div class="res-chart-card" id="res-geo-card" style="display:none">
+          <span id="report-location" class="res-anchor"></span>
+          <h4 class="res-chart-title">Geographic / Location Distribution</h4>
+          <p class="res-chart-subtitle">Burnout severity across reporting regional locations</p>
+          <div class="res-role-bars" id="res-geo-grid"></div>
+        </div>
+
+        <div class="res-chart-card" id="res-forecast-card" style="display:none">
+          <span id="report-forecast" class="res-anchor"></span>
+          <h4 class="res-chart-title">Next-Month Workforce Forecast</h4>
+          <p class="res-chart-subtitle">Ridge model projection from uploaded employee-level monthly history</p>
+          <div class="res-forecast-summary" id="res-forecast-summary"></div>
+          <div class="res-forecast-points" id="res-forecast-points"></div>
+          <p class="res-forecast-note" id="res-forecast-note"></p>
+        </div>
+
+        <!-- Prescriptive AI Interventions -->
+        <div class="res-interventions-card" id="report-actions">
+          <h4 class="res-chart-title">Recommended Supportive Interventions</h4>
+          <p class="res-chart-subtitle">Simulated organizational policy guardrails with projected burnout reduction</p>
+          <div class="res-iv-grid" id="res-iv-grid"></div>
+        </div>
+
+        <!-- Detailed Employee Scoring Roster -->
+        <div class="res-table-card" id="report-roster">
+          <div class="res-table-head">
+            <div>
+              <h4 class="res-table-title">Employee Risk Scoring Roster</h4>
+              <p class="res-table-subtitle">Individual scores computed by HistGradientBoosting &amp; Calibrated Classifier</p>
+            </div>
+            <div class="res-table-controls">
+              <input type="text" id="res-table-search" placeholder="Search ID or Role..." class="res-table-input">
+              <select id="res-table-filter-band" class="res-table-select">
+                <option value="">All Risk Tiers</option>
+                <option value="Elevated">Elevated Risk (≥ 3.7)</option>
+                <option value="Moderate">Moderate (2.5–3.6)</option>
+                <option value="Low">Low Risk (&lt; 2.5)</option>
+              </select>
+              <select id="res-table-filter-mode" class="res-table-select">
+                <option value="">All Work Modes</option>
+                <option value="Remote">Remote</option>
+                <option value="Hybrid">Hybrid</option>
+                <option value="Onsite">Onsite</option>
+              </select>
+              <select id="res-table-page-size" class="res-table-select" aria-label="Rows per page">
+                <option value="25">25 rows</option>
+                <option value="50">50 rows</option>
+                <option value="100">100 rows</option>
+              </select>
+            </div>
+          </div>
+          <div class="res-table-wrap">
+            <table class="res-table" id="res-employee-table">
+              <thead>
+                <tr>
+                  <th>Employee ID</th>
+                  <th>Job Role</th>
+                  <th>Work Mode</th>
+                  <th>Weekly Hours</th>
+                  <th>Overtime</th>
+                  <th>Stress Level</th>
+                  <th>Model Burnout Score</th>
+                  <th>Elevated Probability</th>
+                  <th>Risk Tier</th>
+                </tr>
+              </thead>
+              <tbody id="res-employee-tbody"></tbody>
+            </table>
+          </div>
+          <div class="res-table-pager" id="res-table-pager"></div>
+        </div>
+      </div>
+
       <div class="tile t-hero">
         <canvas class="embers" id="embers" aria-hidden="true"></canvas>
         <div class="orb orb--calm" aria-hidden="true"></div>
@@ -226,18 +601,13 @@
       <div class="tile t-signin">
         <h2 class="tile__title"><span>sign in</span>Choose how to look around</h2>
         <div class="signin tile__body">
-          <div class="signin__opt">
-            <p class="tile__label">Demo</p>
-            <p class="note">A synthetic company of 2,289 people with surveys up to <b>November 2025</b>. You add December yourself and watch the loop check its own forecast.</p>
-            <button type="button" class="btn" data-signin="demo">Sign in to the demo</button>
-          </div>
           <form class="signin__opt" id="signin-company" autocomplete="off">
-            <p class="tile__label">Company</p>
-            <p class="note">Bring your own three CSV files. They stay in memory on this server and are dropped when you sign out.</p>
+            <p class="tile__label">Workforce analysis</p>
+            <p class="note">Enter your organisation name, then upload one workforce CSV or up to three related CSV files. Files stay in this browser session.</p>
             <label class="signin__field">Company name<input name="company" placeholder="e.g. Acme Ltd" required maxlength="60"></label>
-            <button type="submit" class="btn btn--ghost">Sign in as a company</button>
+            <button type="submit" class="btn btn--ghost">Continue to file analysis</button>
           </form>
-          <p class="tile__fine">No passwords: this is a demo sign-in that only picks which data you see.</p>
+          <p class="tile__fine">No password is required. You can upload your data after continuing.</p>
         </div>
       </div>
       <div class="tile t-loop">
@@ -312,6 +682,8 @@
         <div class="tile__body quality" id="quality"></div>
       </div>
     </section>
+
+    <section class="page page--signin" data-page="signin" aria-label="Sign in" hidden></section>
   </div>
 
   <input type="file" id="addmonth-file" accept=".csv" hidden>

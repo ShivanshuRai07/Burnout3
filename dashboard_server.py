@@ -58,8 +58,7 @@ FEATURES = [
     "stress_level", "work_hours_per_week", "work_life_balance", "work_mode",
 ]
 CORE_UPLOAD_FIELDS = {
-    "work_hours_per_week", "overtime_hours", "meetings_per_day", "deadlines_missed",
-    "experience_years", "job_role", "work_mode"
+    "work_hours_per_week", "overtime_hours", "meetings_per_day", "job_role", "work_mode"
 }
 OPTIONAL_WORKPLACE_FIELDS = set(FEATURES) - CORE_UPLOAD_FIELDS
 
@@ -156,6 +155,7 @@ def _summarize_groups(aggregate: dict, limit: int = 20) -> list:
             "mean_score": round(v["score_sum"] / v["count"], 2),
             "elevated_rate": round(v["elevated"] / v["count"] * 100, 1),
             "employees": v["count"],
+            "risk_tiers": {tier: int(v.get(tier, 0)) for tier in ("Low", "Moderate", "Elevated")},
             "privacy_suppressed": bool(0 < v["count"] < MIN_AGGREGATION_CELL_SIZE),
         }
         for name, v in aggregate.items() if v["count"] > 0
@@ -163,12 +163,17 @@ def _summarize_groups(aggregate: dict, limit: int = 20) -> list:
     return sorted(result, key=lambda x: (-x["mean_score"], -x["employees"]))[:limit]
 
 
-def _agg_chunk(series_vals: pd.Series, score: np.ndarray, is_elevated: np.ndarray, agg_dict: dict) -> None:
-    """Accumulate score / elevated counts into agg_dict keyed by category."""
-    tmp = pd.DataFrame({"g": series_vals.values, "s": score, "e": is_elevated})
-    for grp, vals in tmp.groupby("g", sort=False).agg(ss=("s","sum"), cnt=("s","size"), el=("e","sum")).iterrows():
-        cur = agg_dict.setdefault(str(grp), {"score_sum": 0.0, "count": 0, "elevated": 0})
-        cur["score_sum"] += float(vals["ss"]); cur["count"] += int(vals["cnt"]); cur["elevated"] += int(vals["el"])
+def _agg_chunk(series_vals: pd.Series, score: np.ndarray, is_elevated: np.ndarray, agg_dict: dict,
+               bands: np.ndarray | None = None) -> None:
+    """Accumulate scored-row counts and risk tiers into an aggregation keyed by category."""
+    tmp = pd.DataFrame({"g": series_vals.values, "s": score, "e": is_elevated,
+                        "band": bands if bands is not None else np.where(is_elevated, "Elevated", "Low")})
+    for grp, vals in tmp.groupby("g", sort=False):
+        cur = agg_dict.setdefault(str(grp), {"score_sum": 0.0, "count": 0, "elevated": 0,
+                                              "Low": 0, "Moderate": 0, "Elevated": 0})
+        cur["score_sum"] += float(vals["s"].sum()); cur["count"] += int(len(vals)); cur["elevated"] += int(vals["e"].sum())
+        for tier in ("Low", "Moderate", "Elevated"):
+            cur[tier] += int((vals["band"] == tier).sum())
 
 
 MODEL_SOURCE = "tech_mental_health_burnout"
@@ -718,14 +723,17 @@ class DashboardState:
 
         # Filters
         if search:
-            mask &= df["id"].astype(str).str.contains(search, case=False, na=False)
+            search_match = df["id"].astype(str).str.contains(search, case=False, regex=False, na=False)
+            if "role" in df.columns:
+                search_match |= df["role"].astype(str).str.contains(search, case=False, regex=False, na=False)
+            mask &= search_match
         if filter_band in ("Low", "Moderate", "Elevated"):
             mask &= df["band"] == filter_band
-        if filter_role:
-            mask &= df["role"] == filter_role
-        if filter_mode:
-            mask &= df["mode"] == filter_mode
-        if filter_city:
+        if filter_role and "role" in df.columns:
+            mask &= df["role"].astype(str).str.strip().str.casefold() == filter_role.strip().casefold()
+        if filter_mode and "mode" in df.columns:
+            mask &= df["mode"].astype(str).str.strip().str.casefold() == filter_mode.strip().casefold()
+        if filter_city and "city" in df.columns:
             mask &= df["city"].astype(str).str.contains(filter_city, case=False, na=False)
         df_filtered = df[mask]
 
@@ -960,6 +968,19 @@ class DashboardState:
             col_map = {c: c.lower().replace(" ", "_") for c in chunk.columns}
             cl = chunk.rename(columns=col_map)   # cl = chunk_lower
 
+            # Accept the standard monthly-upload template as model input.
+            aliases = {
+                "role_type": "job_role",
+                "overtime_hours_per_week": "overtime_hours",
+                "stress_level_0_10": "stress_level",
+                "sleep_hours_avg": "sleep_hours",
+            }
+            for source, target in aliases.items():
+                if target not in cl.columns and source in cl.columns:
+                    cl[target] = cl[source]
+            if "meetings_per_day" not in cl.columns and "meeting_hours_per_week" in cl.columns:
+                cl["meetings_per_day"] = pd.to_numeric(cl["meeting_hours_per_week"], errors="coerce") / 5
+
             # Strip forbidden PII columns before any storage or processing
             cl, stripped_cols = strip_forbidden_pii(cl)
             if stripped_cols:
@@ -967,7 +988,27 @@ class DashboardState:
 
             if present is None:
                 present = set(cl.columns)
-                miss = sorted(CORE_UPLOAD_FIELDS - present)
+                # A longitudinal CBI export has a different, richer vocabulary than
+                # the snapshot score model. Preserve its native columns for the
+                # forecasting pipeline while mapping compatible work fields for the
+                # score/risk model. Fields without a defensible unit conversion use
+                # the trained pipeline's recorded default instead of being guessed.
+                is_longitudinal_cbi = {"employee_id", "period", *[f"cbi_w{i}" for i in range(1, 8)]}.issubset(present)
+                if is_longitudinal_cbi:
+                    aliases = {
+                        "role_type": "job_role",
+                        "overtime_hours_per_week": "overtime_hours",
+                        "stress_level_0_10": "stress_level",
+                        "sleep_hours_avg": "sleep_hours",
+                        "manager_support_1_5": "manager_support",
+                        "work_life_balance_1_5": "work_life_balance",
+                        "job_satisfaction_1_5": "job_satisfaction",
+                    }
+                    for source, target in aliases.items():
+                        if source in cl.columns and target not in cl.columns:
+                            cl[target] = cl[source]
+                    present = set(cl.columns)
+                miss = [] if is_longitudinal_cbi else sorted(CORE_UPLOAD_FIELDS - present)
                 if miss: raise ValueError("Missing required fields: " + ", ".join(miss))
                 loc_field    = next((f for f in ["city","employee_location","location"] if f in present), None)
                 state_field  = next((f for f in ["state","province","region"] if f in present), None)
@@ -1007,10 +1048,10 @@ class DashboardState:
             for b in bands_total: bands_total[b] += int((band == b).sum())
 
             # ── Aggregations ──
-            if "job_role" in cl.columns:  _agg_chunk(cl["job_role"].fillna("Unknown"), score, elevated, role_agg)
-            if loc_field and loc_field in cl.columns: _agg_chunk(cl[loc_field].fillna("Unknown"), score, elevated, loc_agg)
-            if gender_field and gender_field in cl.columns: _agg_chunk(cl[gender_field].fillna("Unknown"), score, elevated, gender_agg)
-            if "work_mode" in cl.columns: _agg_chunk(cl["work_mode"].fillna("Unknown"), score, elevated, mode_agg)
+            if "job_role" in cl.columns:  _agg_chunk(cl["job_role"].fillna("Unknown"), score, elevated, role_agg, band)
+            if loc_field and loc_field in cl.columns: _agg_chunk(cl[loc_field].fillna("Unknown"), score, elevated, loc_agg, band)
+            if gender_field and gender_field in cl.columns: _agg_chunk(cl[gender_field].fillna("Unknown"), score, elevated, gender_agg, band)
+            if "work_mode" in cl.columns: _agg_chunk(cl["work_mode"].fillna("Unknown"), score, elevated, mode_agg, band)
 
             # State aggregation
             state_series: pd.Series | None = None
@@ -1021,7 +1062,7 @@ class DashboardState:
             if state_series is not None:
                 valid = state_series.notna() & (state_series != "None") & (state_series != "nan")
                 if valid.any():
-                    _agg_chunk(state_series[valid].fillna("Unknown"), score[valid.values], elevated[valid.values], state_agg)
+                    _agg_chunk(state_series[valid].fillna("Unknown"), score[valid.values], elevated[valid.values], state_agg, band[valid.values])
 
             # Work duration bins
             if "work_hours_per_week" in cl.columns:
@@ -1059,6 +1100,30 @@ class DashboardState:
         if not rows: raise ValueError("Uploaded file has no employee rows.")
         self.employee_df = pd.concat(emp_chunks, ignore_index=True) if emp_chunks else None
         self.uploaded_raw_df = pd.concat(raw_chunks, ignore_index=True) if raw_chunks else None
+        scatter_source = self.employee_df.dropna(subset=["hours", "score"]) if self.employee_df is not None else pd.DataFrame()
+        # Preserve rarer moderate/elevated records in a large-workforce sample;
+        # an unrestricted random sample can make meaningful clusters disappear.
+        if len(scatter_source) > 1200 and "band" in scatter_source.columns:
+            selected, selected_index = [], set()
+            for tier in ("Elevated", "Moderate"):
+                tier_rows = scatter_source[scatter_source["band"] == tier]
+                take = min(len(tier_rows), 250)
+                if take:
+                    part = tier_rows.sample(n=take, random_state=42 + len(selected))
+                    selected.append(part)
+                    selected_index.update(part.index.tolist())
+            remaining = max(0, 1200 - sum(len(part) for part in selected))
+            remainder = scatter_source.loc[~scatter_source.index.isin(selected_index)]
+            if remaining and len(remainder):
+                selected.append(remainder.sample(n=min(remaining, len(remainder)), random_state=99))
+            scatter_source = pd.concat(selected, ignore_index=True) if selected else scatter_source.sample(n=1200, random_state=42)
+        elif len(scatter_source) > 1200:
+            scatter_source = scatter_source.sample(n=1200, random_state=42)
+        workload_scatter = [
+            {"id": str(row.id), "hours": float(row.hours), "score": float(row.score),
+             "band": str(row.band), "role": str(row.role), "mode": str(row.mode)}
+            for row in scatter_source[["id", "hours", "score", "band", "role", "mode"]].itertuples(index=False)
+        ]
         self.active_dataset_info = {
             "name": f"Uploaded File: {filename}",
             "source_file": filename,
@@ -1078,6 +1143,7 @@ class DashboardState:
         return {
             "active_dataset": self.active_dataset_info,
             "detected_fields": sorted(present & set(FEATURES)),
+            "longitudinal_cbi_input": is_longitudinal_cbi,
             "optional_fields_not_supplied": sorted(OPTIONAL_WORKPLACE_FIELDS - present),
             "has_gender": gender_field is not None,
             "has_location": loc_field is not None,
@@ -1096,6 +1162,7 @@ class DashboardState:
             "gender_analysis": _summarize_groups(gender_agg),
             "work_mode_analysis": _summarize_groups(mode_agg),
             "duration_analysis": _summarize_groups({k: v for k, v in dur_agg.items() if v["count"] > 0}),
+            "workload_scatter": workload_scatter,
             "state_analysis": _summarize_groups(state_agg, limit=30),
             "upload_progress_percent": 100,
             "initial_table": self.get_employee_table(page=0, page_size=25),
@@ -1296,13 +1363,25 @@ def make_handler(state: DashboardState, html: bytes):
                     ct  = self.headers.get("Content-Type", "")
                     cl  = int(self.headers.get("Content-Length", "0"))
                     raw = self.rfile.read(cl)
-                    file_bytes, file_name = None, "upload.csv"
+                    files: dict[str, tuple[bytes, str]] = {}
                     for name, filename, body in _parse_multipart(raw, ct):
-                        if name == "file":
-                            file_bytes = body; file_name = filename or file_name; break
-                    if file_bytes is None:
-                        raise ValueError("No CSV file received.")
-                    return self.send_json(state.analyse_upload(io.BytesIO(file_bytes), file_name))
+                        if name in {"file", "monthly", "employees"}:
+                            files[name] = (body, filename or f"{name}.csv")
+                    monthly_bytes, monthly_name = files.get("monthly", files.get("file", (None, "monthly.csv")))
+                    if monthly_bytes is None:
+                        raise ValueError("A monthly.csv file is required for model analysis.")
+                    # Bring stable employee attributes (for example role and work
+                    # mode) into the monthly telemetry before the trained models
+                    # score it. Nothing is written to disk.
+                    if "employees" in files:
+                        employee_bytes, _ = files["employees"]
+                        monthly_df = pd.read_csv(io.BytesIO(monthly_bytes))
+                        employees_df = pd.read_csv(io.BytesIO(employee_bytes))
+                        if "employee_id" in monthly_df.columns and "employee_id" in employees_df.columns:
+                            additions = [c for c in employees_df.columns if c == "employee_id" or c not in monthly_df.columns]
+                            monthly_df = monthly_df.merge(employees_df[additions], on="employee_id", how="left")
+                            monthly_bytes = monthly_df.to_csv(index=False).encode("utf-8")
+                    return self.send_json(state.analyse_upload(io.BytesIO(monthly_bytes), monthly_name))
 
                 size = int(self.headers.get("Content-Length", "0"))
                 raw_body = self.rfile.read(size) if size > 0 else b"{}"
