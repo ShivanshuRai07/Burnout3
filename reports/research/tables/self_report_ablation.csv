@@ -1,0 +1,4 @@
+feature_set,n_numeric_features,test_r2,test_mae,test_roc_auc_elevated
+all features,14,0.7444,0.4223,0.9503
+without stress_level,13,0.6657,0.4896,0.9292
+workplace only (no self-reported wellbeing),6,0.3514,0.712,0.8275

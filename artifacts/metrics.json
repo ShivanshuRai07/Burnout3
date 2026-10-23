@@ -1,55 +1,118 @@
 {
   "dataset": {
-    "total_rows": 178750,
-    "labeled_rows": 174626,
+    "source": "tech_mental_health_burnout",
+    "total_rows": 150000,
+    "train_rows": 120000,
+    "test_rows": 30000,
     "features_used": [
       "caffeine_intake",
-      "company_size",
       "deadlines_missed",
       "experience_years",
-      "job_role",
       "job_satisfaction",
       "manager_support",
-      "meeting_load",
       "meetings_per_day",
       "overtime_hours",
       "physical_activity_days",
       "screen_time_hours",
       "sleep_hours",
       "social_support_score",
-      "support_index",
-      "wellness_score",
+      "stress_level",
       "work_hours_per_week",
       "work_life_balance",
-      "work_mode",
-      "workload_index"
+      "company_size",
+      "job_role",
+      "work_mode"
     ]
   },
   "regression_models": {
+    "mean_baseline": {
+      "val_mae": 0.9215,
+      "val_rmse": 1.1078,
+      "val_r2": -0.0001,
+      "test_mae": 0.9253,
+      "test_rmse": 1.114,
+      "test_r2": -0.0
+    },
     "ridge": {
-      "mae": 0.6335,
-      "rmse": 0.8711,
-      "r2": 0.688
+      "val_mae": 0.4928,
+      "val_rmse": 0.6181,
+      "val_r2": 0.6886,
+      "test_mae": 0.4953,
+      "test_rmse": 0.6227,
+      "test_r2": 0.6876
     },
     "random_forest": {
-      "mae": 0.6035,
-      "rmse": 0.8266,
-      "r2": 0.7191
+      "val_mae": 0.4316,
+      "val_rmse": 0.5773,
+      "val_r2": 0.7283,
+      "test_mae": 0.433,
+      "test_rmse": 0.5778,
+      "test_r2": 0.7309
     },
     "hist_gradient_boosting": {
-      "mae": 0.5632,
-      "rmse": 0.7784,
-      "r2": 0.7509
-    },
-    "xgboost": {
-      "mae": 0.5628,
-      "rmse": 0.7808,
-      "r2": 0.7494
+      "val_mae": 0.4191,
+      "val_rmse": 0.5604,
+      "val_r2": 0.744,
+      "test_mae": 0.4221,
+      "test_rmse": 0.5629,
+      "test_r2": 0.7447
     }
   },
   "recommended_model": "hist_gradient_boosting",
   "risk_model": {
-    "threshold": 4.5,
-    "risk_quantile": 0.9
+    "threshold": 3.7,
+    "risk_quantile": 0.9,
+    "classifier_models": {
+      "majority_baseline": {
+        "test_roc_auc": 0.5,
+        "test_pr_auc": 0.1101,
+        "test_brier_score": 0.1101,
+        "test_f1_at_0_5": 0.0,
+        "test_precision_at_0_5": 0.0,
+        "test_recall_at_0_5": 0.0,
+        "val_optimal_threshold": 0.1,
+        "test_f1_at_val_threshold": 0.0,
+        "test_precision_at_val_threshold": 0.0,
+        "test_recall_at_val_threshold": 0.0
+      },
+      "logistic_regression": {
+        "test_roc_auc": 0.9524,
+        "test_pr_auc": 0.7391,
+        "test_brier_score": 0.0505,
+        "test_f1_at_0_5": 0.6367,
+        "test_precision_at_0_5": 0.7373,
+        "test_recall_at_0_5": 0.5603,
+        "val_optimal_threshold": 0.31,
+        "test_f1_at_val_threshold": 0.6693,
+        "test_precision_at_val_threshold": 0.6296,
+        "test_recall_at_val_threshold": 0.7144
+      },
+      "random_forest": {
+        "test_roc_auc": 0.9446,
+        "test_pr_auc": 0.7094,
+        "test_brier_score": 0.055,
+        "test_f1_at_0_5": 0.5571,
+        "test_precision_at_0_5": 0.7856,
+        "test_recall_at_0_5": 0.4316,
+        "val_optimal_threshold": 0.28,
+        "test_f1_at_val_threshold": 0.6451,
+        "test_precision_at_val_threshold": 0.5984,
+        "test_recall_at_val_threshold": 0.6996
+      },
+      "hist_gradient_boosting": {
+        "test_roc_auc": 0.9501,
+        "test_pr_auc": 0.7309,
+        "test_brier_score": 0.0512,
+        "test_f1_at_0_5": 0.6382,
+        "test_precision_at_0_5": 0.7236,
+        "test_recall_at_0_5": 0.5709,
+        "val_optimal_threshold": 0.35,
+        "test_f1_at_val_threshold": 0.6627,
+        "test_precision_at_val_threshold": 0.6383,
+        "test_recall_at_val_threshold": 0.689
+      }
+    },
+    "recommended_classifier": "logistic_regression",
+    "val_optimal_threshold": 0.31
   }
 }

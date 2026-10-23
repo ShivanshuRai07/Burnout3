@@ -18,3 +18,17 @@ env/
 artifacts_new/
 .vercel
 .env*
+
+# Data ignore rules (protect private/raw datasets and research records)
+data/raw/
+data/processed/
+Datasets/
+real_sources/
+*.xlsx
+*.xls
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+

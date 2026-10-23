@@ -1,0 +1,360 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BurnoutIQ — Workforce Wellbeing Analytics</title>
+  <meta name="description" content="BurnoutIQ: measure, forecast, simulate, intervene and verify. A monthly loop for work-related burnout using the Copenhagen Burnout Inventory.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- NAV BAR -->
+  <header class="bar">
+    <div class="bar__cell bar__mark">
+      <a class="bar__brand" href="#/">
+        <div class="ember-dot">B</div>
+        <div class="dots"><i></i><i></i><i></i></div>
+        BurnoutIQ <b>loop</b>
+      </a>
+    </div>
+    <div class="bar__cell">
+      <div class="dots"><i></i></div>
+    </div>
+    <nav class="bar__nav stepper" id="bar-nav" aria-label="Main navigation">
+      <a href="#/" data-page="assess" data-count="assess" class="is-on"><span>01</span>Assess<small></small></a>
+      <a href="#/people" data-page="people" data-count="people"><span>02/03</span>People<small></small></a>
+      <a href="#/model" data-page="model"><span>04/05</span>Model</a>
+      <a href="#/data" data-page="data" class="stepper__data"><span>&#8593;</span>Data &amp; model</a>
+    </nav>
+    <div class="bar__cell bar__acct" id="acct" hidden></div>
+    <div class="bar__cell bar__meta" id="meta" style="display:none"><span class="pulse"></span><span class="bar__metatext">connecting&#8230;</span></div>
+  </header>
+
+  <!-- MONTH BAND -->
+  <div class="month" id="month">
+    <div class="month__now">
+      <small>Reporting period</small>
+      <b id="month-label">&#8212;</b>
+    </div>
+    <label class="month__pick"><span class="sr">View month</span><select id="month-select" aria-label="Month to view"></select></label>
+    <div class="month__src" id="month-src"></div>
+    <div class="month__actions" id="month-actions"></div>
+  </div>
+
+  <div class="pages">
+
+    <!-- PAGE: 01 ASSESS -->
+    <section class="page page--assess active" data-page="assess" aria-label="Assess">
+      <div class="tile t-how" data-how="assess"></div>
+      <div class="tile t-kpis"><dl class="kpis" id="kpis"></dl></div>
+      <div class="tile t-status">
+        <h2 class="tile__title"><span>01 assess &#183; click a group</span>Where everyone is</h2>
+        <div class="donutwrap" id="statusdonut"></div>
+        <h2 class="tile__title tile__title--sub"><span>person or team?</span>Is it them, or their department?</h2>
+        <div class="quad2" id="quad"></div>
+      </div>
+      <div class="tile t-div">
+        <h2 class="tile__title"><span>01 assess &#183; click a department</span>% scoring high, by department</h2>
+        <div class="tile__body"><div class="dotplot table--click" id="divisions" role="table"></div></div>
+      </div>
+      <div class="tile t-help">
+        <div class="tile__row"><h2 class="tile__title"><span>05 verify &#183; learn</span>Did support help?</h2><a class="more" href="#/people?status=outcome_improved,outcome_no_change,outcome_worsened">people &#8594;</a></div>
+        <div class="tile__body" id="help"></div>
+      </div>
+    </section>
+
+    <!-- PAGE: PEOPLE -->
+    <section class="page page--people" data-page="people" aria-label="Employees" hidden>
+      <div class="tile t-how t-how--strip" data-how="people"></div>
+      <div class="tile t-pfilter" data-view="departments">
+        <div class="drillbar">
+          <div class="seg seg--big" id="peopleview" role="tablist" aria-label="Level">
+            <button type="button" role="tab" data-view="departments" class="is-on" aria-selected="true">Departments</button>
+            <button type="button" role="tab" data-view="teams" aria-selected="false">Teams</button>
+            <button type="button" role="tab" data-view="people" aria-selected="false">People</button>
+          </div>
+          <nav class="crumbs" id="crumbs" aria-label="Where you are"></nav>
+        </div>
+        <div class="pf pf--departments">
+          <p class="teamsum" id="deptsum"></p>
+          <p class="tile__fine">Click a department (row or wedge) to see its teams, then a team to see its people.</p>
+        </div>
+        <div class="pf pf--teams">
+          <form class="filters" id="tfilters" autocomplete="off">
+            <select name="department" aria-label="Department"><option value="">All departments</option></select>
+            <select name="sort" aria-label="Rank teams by"><option value="urgent">Rank: people needing a decision</option><option value="score">Rank: average score</option><option value="high">Rank: share scoring high</option><option value="flagged">Rank: people flagged</option><option value="change">Rank: change since last month</option><option value="rise">Rank: predicted rise</option><option value="hours">Rank: hours/week</option></select>
+            <label class="check"><input type="checkbox" name="small" value="1"> show teams under 5 scored</label>
+          </form>
+          <p class="teamsum" id="teamsum"></p>
+        </div>
+        <div class="pf pf--people">
+          <div class="quicktabs" id="quicktabs" role="tablist" aria-label="Quick lists">
+            <button type="button" data-status="">Everyone</button>
+            <button type="button" data-status="flagged">Needs a decision</button>
+            <button type="button" data-status="support_planned,in_support">In support</button>
+            <button type="button" data-status="follow_up_due,follow_up_overdue">Follow-up due</button>
+            <button type="button" data-status="outcome_improved,outcome_no_change,outcome_worsened">Has a result</button>
+          </div>
+          <form class="filters" id="filters" autocomplete="off">
+            <input name="q" placeholder="Employee ID" aria-label="Search by employee ID" spellcheck="false">
+            <select name="department" aria-label="Department"><option value="">All departments</option></select>
+            <select name="team" aria-label="Team"><option value="">All teams</option></select>
+            <select name="level" aria-label="Burnout level"><option value="">Any burnout level</option><option value="very_high">Very high</option><option value="high">High</option><option value="normal">Normal</option><option value="no_score">No score</option></select>
+            <select name="workload" aria-label="Workload level"><option value="">Any workload</option><option value="high">High workload</option><option value="elevated">Elevated</option><option value="normal">Normal</option><option value="no_data">No data</option></select>
+            <label class="check"><input type="checkbox" name="flagged" value="1"> flagged only</label>
+            <select name="sort" aria-label="Rank by"><option value="urgent">Rank: needs a decision first</option><option value="score">Rank: burnout score</option><option value="rise">Rank: predicted rise</option><option value="forecast">Rank: next-month forecast</option><option value="personal_change">Rank: change vs own baseline</option><option value="hours">Rank: hours/week</option></select>
+          </form>
+        </div>
+      </div>
+      <div class="tile t-seats">
+        <h2 class="tile__title"><span>everyone this month &#183; click a section</span><span id="seats-title">Company</span></h2>
+        <div class="seats">
+          <svg id="seats" viewBox="0 0 320 300" role="img" aria-label="Every person this month as a seat, grouped by department or team"></svg>
+          <ul class="seats__key" id="seats-key"></ul>
+        </div>
+      </div>
+      <div class="tile t-list" data-view="departments">
+        <div class="deptview" id="dept-view">
+          <div class="tile__body" id="depts-body"><div class="table table--compact table--click" id="depts" role="table"></div></div>
+          <p class="tile__fine">Click a department to see its teams, then a team to see its people. Groups under 5 scored people are not shown.</p>
+        </div>
+        <div class="teamsview" id="teams-view">
+          <div class="tile__body" id="teams-body"><div class="table table--compact table--click" id="teams" role="table"></div></div>
+          <div class="pager" id="teams-pager"></div>
+        </div>
+        <div class="tile__body" id="people-body"><div class="table table--compact table--click" id="people" role="table"></div></div>
+        <div class="pager" id="people-pager"></div>
+      </div>
+    </section>
+
+    <!-- PAGE: ONE EMPLOYEE -->
+    <section class="page page--employees" data-page="employee" aria-label="Burnout journey" hidden>
+      <div class="tile t-pbar">
+        <div class="pbar">
+          <div class="pbar__id">
+            <h2 class="tile__title"><b id="p-id">&#8212;</b></h2>
+            <p class="note" id="p-where"></p>
+          </div>
+          <dl class="person__now" id="p-now"></dl>
+          <div class="pbar__cell"><p class="tile__label">Where they stand</p><div class="standing" id="standing"></div></div>
+          <div class="pbar__cell"><p class="tile__label pbar__lab"><span>Workload</span><span id="gauge-head"></span></p><div class="gauge" id="gauge"></div></div>
+        </div>
+      </div>
+      <div class="tile t-drivers">
+        <h2 class="tile__title"><span>01 assess</span>Why flagged, and what drives it</h2>
+        <div class="tile__body">
+          <div class="insights" id="insights"></div>
+          <p class="tile__label" id="drivers-month">latest survey answers</p>
+          <div class="drivers" id="drivers"></div>
+        </div>
+      </div>
+      <div class="tile t-chart">
+        <div class="tile__row">
+          <h2 class="tile__title"><span>02 predict &#183; 03 simulate &#183; pick an option</span>Month by month, then 3 simulated</h2>
+          <ul class="keys"><li><i class="k k--actual"></i>observed</li><li><i class="k k--model"></i>median path</li><li><i class="k k--band"></i>10&#8211;90% of paths</li><li><i class="k k--support"></i>support</li></ul>
+        </div>
+        <div class="scenlist scenlist--chips" id="scenarios" role="tablist" aria-label="Scenario"></div>
+        <svg id="personchart" class="chart" role="img" aria-label="Employee score history and simulated paths"></svg>
+        <p class="tile__fine" id="scennote"></p>
+      </div>
+      <div class="tile t-act">
+        <h2 class="tile__title"><span>04 intervene</span>Log support</h2>
+        <div class="tile__body">
+          <form class="logform" id="logform" autocomplete="off">
+            <label class="wide">Support<select name="intervention_type" required></select></label>
+            <label>Responsible<input name="owner" placeholder="Name or role" required></label>
+            <label>Notes<input name="notes" placeholder="What was agreed"></label>
+            <label>Start<input type="date" name="start_date" required></label>
+            <label>Planned end<input type="date" name="planned_end_date" required></label>
+            <button type="submit" class="btn">Log support</button>
+            <p class="tile__fine" id="logform-note"></p>
+          </form>
+        </div>
+      </div>
+      <div class="tile t-results">
+        <h2 class="tile__title"><span>05 verify</span>Support given and what happened after</h2>
+        <div class="tile__body"><div class="rcards" id="results"></div></div>
+      </div>
+    </section>
+
+    <!-- PAGE: MODEL -->
+    <section class="page page--model" data-page="model" aria-label="Model" hidden>
+      <div class="tile t-ring">
+        <h2 class="tile__title"><span>the framework &#183; click a stage</span>One loop, every month</h2>
+        <svg id="ring" class="ring" viewBox="0 0 460 400" role="img" aria-label="The six stages of the BurnoutIQ loop"></svg>
+        <div class="ringinfo" id="ringinfo"></div>
+      </div>
+      <div class="tile t-fchart">
+        <div class="tile__row">
+          <h2 class="tile__title"><span>02 predict &#183; held-out people</span>Forecast vs what happened, company average</h2>
+          <ul class="keys"><li><i class="k k--actual"></i>what happened</li><li><i class="k k--model"></i>forecast</li><li><i class="k k--base"></i>&#8220;same as last month&#8221;</li></ul>
+        </div>
+        <svg id="fchart" class="chart" role="img" aria-label="Monthly forecast against actual company average"></svg>
+        <p class="tile__fine" id="fnote"></p>
+      </div>
+      <div class="tile t-mkpis">
+        <h2 class="tile__title"><span>trust</span>How good is the forecast</h2>
+        <div class="tile__body errviz" id="modelkpis"></div>
+      </div>
+      <div class="tile t-calib">
+        <h2 class="tile__title"><span>trust &#183; by department</span>Forecast vs actual</h2>
+        <div class="tile__body" id="calibration"></div>
+        <p class="tile__fine" id="forecastnote"></p>
+      </div>
+      <div class="tile t-snap">
+        <h2 class="tile__title"><span>the team&#8217;s model &#183; one moment</span>Snapshot burnout score</h2>
+        <div class="tile__body" id="snap"><p class="note">Loading&#8230;</p></div>
+      </div>
+    </section>
+
+    <!-- PAGE: DATA & MODEL -->
+    <section class="page page--data" data-page="data" aria-label="Data and model" hidden>
+      <div class="tile t-hero">
+        <canvas class="embers" id="embers" aria-hidden="true"></canvas>
+        <div class="orb orb--calm" aria-hidden="true"></div>
+        <div class="orb orb--fire" aria-hidden="true"><span class="orb__core"></span></div>
+        <h1 class="hero__word">from <span class="w-light">calm</span> to <span class="w-fire" id="cycle">fire</span></h1>
+        <div class="hero__foot">
+          <p class="lede">A monthly loop: measure work-related burnout, forecast next month, simulate options, log support, check whether it helped.</p>
+          <div class="start" id="start"></div>
+        </div>
+      </div>
+      <div class="tile t-signin">
+        <h2 class="tile__title"><span>sign in</span>Choose how to look around</h2>
+        <div class="signin tile__body">
+          <div class="signin__opt">
+            <p class="tile__label">Demo</p>
+            <p class="note">A synthetic company of 2,289 people with surveys up to <b>November 2025</b>. You add December yourself and watch the loop check its own forecast.</p>
+            <button type="button" class="btn" data-signin="demo">Sign in to the demo</button>
+          </div>
+          <form class="signin__opt" id="signin-company" autocomplete="off">
+            <p class="tile__label">Company</p>
+            <p class="note">Bring your own three CSV files. They stay in memory on this server and are dropped when you sign out.</p>
+            <label class="signin__field">Company name<input name="company" placeholder="e.g. Acme Ltd" required maxlength="60"></label>
+            <button type="submit" class="btn btn--ghost">Sign in as a company</button>
+          </form>
+          <p class="tile__fine">No passwords: this is a demo sign-in that only picks which data you see.</p>
+        </div>
+      </div>
+      <div class="tile t-loop">
+        <h2 class="tile__title"><span>how it works</span>One loop, every month</h2>
+        <ol class="loopsteps tile__body">
+          <li><b>01</b><strong>Assess</strong><span>7-question CBI work survey, scored 0&#8211;100. 50+ is high.</span></li>
+          <li><b>02</b><strong>Predict</strong><span>Forecast next month&#8217;s score from this month&#8217;s survey and work data.</span></li>
+          <li><b>03</b><strong>Simulate</strong><span>500 possible paths for no change, less overtime, or support.</span></li>
+          <li><b>04</b><strong>Intervene</strong><span>A manager logs the support, who owns it, and when it ends.</span></li>
+          <li><b>05</b><strong>Verify</strong><span>The next survey says if it helped, beyond normal noise.</span></li>
+        </ol>
+      </div>
+      <div class="tile t-data">
+        <div class="add-data tile__body" id="add-data"></div>
+        <div class="upload-block">
+          <h2 class="tile__title"><span>inputs</span>Bring your own data</h2>
+          <ol class="howto">
+            <li><b>1</b>Download the three templates</li>
+            <li><b>2</b>Fill them with pseudonymous IDs</li>
+            <li><b>3</b>Check, then run the loop</li>
+          </ol>
+          <form class="upload tile__body" id="upload">
+            <label class="drop" data-file="employees"><span class="drop__name">employees.csv</span><a class="drop__tpl" data-tpl="employees_template.csv">template</a><span class="drop__state">required</span><button type="button" class="drop__x" aria-label="Remove this file" title="Remove this file">&#215;</button><input type="file" name="employees" accept=".csv"></label>
+            <label class="drop" data-file="monthly"><span class="drop__name">monthly.csv</span><a class="drop__tpl" data-tpl="monthly_template.csv">template</a><span class="drop__state">required</span><button type="button" class="drop__x" aria-label="Remove this file" title="Remove this file">&#215;</button><input type="file" name="monthly" accept=".csv"></label>
+            <label class="drop" data-file="interventions"><span class="drop__name">interventions.csv</span><a class="drop__tpl" data-tpl="interventions_template.csv">template</a><span class="drop__state">optional</span><button type="button" class="drop__x" aria-label="Remove this file" title="Remove this file">&#215;</button><input type="file" name="interventions" accept=".csv"></label>
+            <div class="formacts"><button type="submit" class="btn">Check files</button><button type="reset" class="btn btn--ghost">Discard</button></div>
+            <p class="tile__fine">No data yet? Try a sample 400-person company:
+              <a href="/templates/sample_company/employees.csv" download="employees.csv">employees</a> &#183;
+              <a href="/templates/sample_company/monthly.csv" download="monthly.csv">monthly</a> &#183;
+              <a href="/templates/sample_company/interventions.csv" download="interventions.csv">interventions</a></p>
+          </form>
+        </div>
+      </div>
+      <div class="tile t-report">
+        <h2 class="tile__title"><span>inputs &#183; connectors</span>Where the data comes from</h2>
+        <div class="tile__body report" id="report">
+          <div class="levels" id="levels"></div>
+          <div class="sources">
+            <div class="srcgrid srcgrid--conn" id="connectors">
+              <button type="button" class="src is-live" data-conn="csv"><b>CSV upload</b><span>three files, every month or year</span><i class="tag tag--calm">live</i></button>
+              <button type="button" class="src is-mcp" data-conn="mcp"><b>MCP connector</b><span>tools and AI assistants send the monthly files</span><i class="tag tag--amber">soon</i></button>
+              <button type="button" class="src" data-conn="hr"><b>HR system</b><span>employees.csv</span><i class="tag tag--ash">soon</i></button>
+              <button type="button" class="src" data-conn="survey"><b>Survey tool</b><span>monthly &#183; CBI answers</span><i class="tag tag--ash">soon</i></button>
+              <button type="button" class="src" data-conn="time"><b>Timesheets</b><span>monthly &#183; hours, overtime</span><i class="tag tag--ash">soon</i></button>
+              <button type="button" class="src" data-conn="cases"><b>Case notes</b><span>interventions.csv</span><i class="tag tag--ash">soon</i></button>
+            </div>
+            <p class="tile__fine">Every connector writes the same three files, so nothing after this page changes.</p>
+          </div>
+          <div class="filespec">
+            <button type="button" class="surveycta" data-survey>
+              <b>See how the survey is taken</b><span>the 7 monthly questions, as an employee sees them &#183; try it and see the score</span><i>&#8594;</i>
+            </button>
+            <p class="tile__label">the three files &#183; pseudonymous IDs only</p>
+            <div class="fs"><b>employees.csv</b><span>once, then when people join or move</span><code><b>employee_id &#183; department</b> + optional team_id &#183; role_type &#183; contracted_hours_per_week</code><a href="/templates/employees_template.csv" download>template</a></div>
+            <div class="fs"><b>monthly.csv</b><span>every month (or a year at once)</span><code><b>employee_id &#183; period &#183; cbi_w1 &#8230; cbi_w7</b> + optional hours, overtime, meetings, workload, stress &#8230;</code><a href="/templates/monthly_template.csv" download>template</a></div>
+            <div class="fs"><b>interventions.csv</b><span>optional &#183; support given</span><code><b>employee_id &#183; intervention_type &#183; referral_period &#183; start_date &#183; planned_end_date &#183; completion_status</b></code><a href="/templates/interventions_template.csv" download>template</a></div>
+          </div>
+        </div>
+      </div>
+      <div class="tile t-check">
+        <h2 class="tile__title"><span>trust &#183; after each new month</span>Can we trust the forecast?</h2>
+        <div class="tile__body" id="check"></div>
+      </div>
+      <div class="tile t-loaded">
+        <h2 class="tile__title"><span>inputs &#183; what is loaded</span><span id="loaded-title">Loaded data</span></h2>
+        <dl class="loadkpis" id="loadkpis"></dl>
+        <p class="tile__label">surveys answered each month &#183; bar = people with a record, fill = answered</p>
+        <div class="mbars" id="mbars"></div>
+      </div>
+      <div class="tile t-quality">
+        <h2 class="tile__title"><span>inputs &#183; data quality</span>How complete is each field?</h2>
+        <div class="tile__body quality" id="quality"></div>
+      </div>
+    </section>
+  </div>
+
+  <input type="file" id="addmonth-file" accept=".csv" hidden>
+
+  <dialog class="survey" id="survey" aria-labelledby="survey-title">
+    <form method="dialog" class="survey__head">
+      <div><p class="tile__label">example &#183; monthly survey &#183; about 1 minute</p><h2 id="survey-title">How has work felt this month?</h2></div>
+      <div class="survey__headacts">
+        <button type="button" class="btn btn--small btn--ghost" id="survey-blank">Download blank survey</button>
+        <button type="submit" class="survey__x" aria-label="Close">&#215;</button>
+      </div>
+    </form>
+    <div class="survey__body">
+      <form id="survey-form" class="survey__form" autocomplete="off"></form>
+      <aside class="survey__result" id="survey-result">
+        <p class="tile__label">your result</p>
+        <p class="note">Answer the questions and press <b>See my score</b>. The score is worked out the same way as the real monthly data. Nothing is saved.</p>
+      </aside>
+    </div>
+  </dialog>
+
+  <dialog class="confirm" id="confirm" aria-labelledby="confirm-title">
+    <form method="dialog">
+      <p class="tile__label" id="confirm-label">please confirm</p>
+      <h2 id="confirm-title"></h2>
+      <div id="confirm-body"></div>
+      <div class="confirm__acts">
+        <button type="submit" value="cancel" class="btn btn--ghost" id="confirm-cancel">Cancel</button>
+        <button type="submit" value="ok" class="btn" id="confirm-ok">Add</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="adding" id="adding" hidden role="status" aria-live="polite">
+    <div class="adding__card">
+      <p class="tile__label" id="adding-label">adding data</p>
+      <h2 class="adding__title" id="adding-title"></h2>
+      <div class="adding__months" id="adding-months"></div>
+      <ol class="adding__steps" id="adding-steps"></ol>
+      <div class="adding__result" id="adding-result"></div>
+    </div>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>

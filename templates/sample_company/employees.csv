@@ -1,0 +1,401 @@
+employee_id,department,team_id,job_level,role_type,work_mode,employment_type,contracted_hours_per_week,age_band,gender,hire_date,termination_date,exit_reason,split,data_origin,source_dataset
+SYN-00003,Engineering,ENG-T01,3,team_lead,remote,full_time,40.0,55+,female,2024-04-05,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00008,Engineering,ENG-T60,1,individual_contributor,remote,full_time,40.0,25-34,male,2019-08-06,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00010,Operations,OPS-T32,2,individual_contributor,hybrid,full_time,40.0,35-44,female,2023-04-14,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00013,Engineering,ENG-T34,2,individual_contributor,onsite,full_time,40.0,18-24,female,2020-10-28,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-00025,Marketing,MKT-T14,1,individual_contributor,remote,full_time,40.0,25-34,male,2021-05-16,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-00029,Operations,OPS-T03,1,individual_contributor,onsite,full_time,40.0,45-54,male,2020-06-15,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00035,Customer Support,SUP-T23,2,individual_contributor,onsite,full_time,40.0,35-44,male,2023-08-07,2025-04-07,involuntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00037,Operations,OPS-T17,2,individual_contributor,remote,full_time,40.0,18-24,male,2024-02-28,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-00038,Engineering,ENG-T13,3,individual_contributor,remote,full_time,40.0,35-44,male,2020-04-02,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-00044,Customer Support,SUP-T23,1,individual_contributor,onsite,full_time,40.0,35-44,male,2020-05-28,2025-12-08,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00047,Sales,SAL-T08,4,manager,hybrid,full_time,40.0,25-34,female,2021-04-26,2025-05-06,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00052,Sales,SAL-T19,2,individual_contributor,hybrid,full_time,40.0,25-34,male,2023-11-05,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-00055,Engineering,ENG-T14,1,individual_contributor,onsite,full_time,40.0,55+,female,2016-09-02,2025-02-03,involuntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00059,Engineering,ENG-T10,3,individual_contributor,hybrid,full_time,40.0,25-34,female,2024-08-19,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00061,Finance,FIN-T06,3,individual_contributor,onsite,full_time,40.0,35-44,male,2022-12-17,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00071,Engineering,ENG-T35,4,manager,remote,full_time,40.0,55+,female,2017-08-05,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00072,Sales,SAL-T01,5,senior_manager,hybrid,full_time,40.0,25-34,female,2023-06-02,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00095,Engineering,ENG-T53,2,individual_contributor,remote,full_time,40.0,45-54,female,2019-10-27,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00100,Marketing,MKT-T03,3,team_lead,hybrid,part_time,24.0,25-34,male,2022-04-24,2025-03-06,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00109,Operations,OPS-T14,1,individual_contributor,hybrid,full_time,40.0,35-44,female,2013-10-16,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00111,Operations,OPS-T08,2,individual_contributor,onsite,full_time,40.0,35-44,male,2022-09-06,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00118,Engineering,ENG-T13,5,senior_manager,onsite,full_time,40.0,45-54,female,2016-10-26,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00122,Operations,OPS-T28,1,individual_contributor,hybrid,full_time,40.0,55+,female,2020-11-12,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-00126,Human Resources,HRM-T06,4,manager,hybrid,full_time,40.0,35-44,female,2019-05-03,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00128,Customer Support,SUP-T28,3,team_lead,onsite,full_time,40.0,45-54,male,2021-06-16,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00141,Human Resources,HRM-T04,2,individual_contributor,onsite,full_time,40.0,45-54,prefer_not_to_say,2021-10-08,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00142,Customer Support,SUP-T24,1,individual_contributor,onsite,full_time,40.0,25-34,female,2016-06-13,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00152,Engineering,ENG-T47,2,individual_contributor,onsite,full_time,40.0,55+,male,2022-01-23,2025-12-04,voluntary,test,synthetic,burnoutiq_synthetic_v1
+SYN-00159,Finance,FIN-T10,2,individual_contributor,hybrid,full_time,40.0,35-44,male,2020-07-11,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-00173,Sales,SAL-T26,3,individual_contributor,hybrid,full_time,40.0,55+,male,2022-11-15,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-00174,Finance,FIN-T16,3,individual_contributor,hybrid,full_time,40.0,25-34,male,2022-06-11,2025-11-08,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00180,Sales,SAL-T33,1,individual_contributor,onsite,part_time,24.0,55+,female,2017-05-16,2025-03-07,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00195,Finance,FIN-T06,1,individual_contributor,hybrid,full_time,40.0,25-34,female,2021-02-03,2025-10-04,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00197,Customer Support,SUP-T08,4,manager,onsite,full_time,40.0,25-34,male,2024-04-11,2025-03-11,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00201,Marketing,MKT-T06,1,individual_contributor,onsite,full_time,40.0,25-34,male,2020-11-13,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00205,Engineering,ENG-T56,4,manager,remote,full_time,40.0,25-34,male,2021-12-10,2025-06-13,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00207,Sales,SAL-T30,2,individual_contributor,hybrid,full_time,40.0,25-34,female,2019-05-16,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00211,Operations,OPS-T12,2,individual_contributor,onsite,full_time,40.0,35-44,male,2024-12-18,2025-07-02,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00218,Customer Support,SUP-T17,2,individual_contributor,hybrid,full_time,40.0,35-44,male,2019-02-08,2025-10-09,voluntary,test,synthetic,burnoutiq_synthetic_v1
+SYN-00230,Marketing,MKT-T01,1,individual_contributor,hybrid,full_time,40.0,25-34,female,2023-05-23,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00233,Customer Support,SUP-T20,2,individual_contributor,hybrid,full_time,40.0,25-34,male,2007-03-09,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00238,Marketing,MKT-T05,2,individual_contributor,onsite,full_time,40.0,25-34,female,2017-04-19,2025-10-09,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00241,Human Resources,HRM-T01,2,individual_contributor,hybrid,full_time,40.0,35-44,male,2020-12-05,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00242,Finance,FIN-T01,3,team_lead,hybrid,full_time,40.0,45-54,male,2024-10-27,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-00254,Operations,OPS-T16,4,manager,onsite,full_time,40.0,25-34,female,2023-09-09,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00260,Engineering,ENG-T45,1,individual_contributor,hybrid,full_time,40.0,35-44,male,2022-08-18,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-00263,Engineering,ENG-T39,1,individual_contributor,remote,full_time,40.0,25-34,male,2019-04-23,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00271,Engineering,ENG-T57,2,individual_contributor,onsite,full_time,40.0,45-54,female,2022-03-21,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00279,Finance,FIN-T03,1,individual_contributor,onsite,full_time,40.0,25-34,male,2022-02-21,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00280,Human Resources,HRM-T03,2,individual_contributor,hybrid,full_time,40.0,45-54,male,2023-02-11,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00285,Engineering,ENG-T23,4,manager,hybrid,full_time,40.0,18-24,prefer_not_to_say,2012-09-14,2025-07-12,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00301,Operations,OPS-T10,3,individual_contributor,onsite,full_time,40.0,35-44,non_binary,2022-04-23,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00309,Engineering,ENG-T04,2,individual_contributor,onsite,full_time,40.0,35-44,male,2023-07-28,2025-04-13,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00319,Engineering,ENG-T51,1,individual_contributor,onsite,full_time,40.0,45-54,male,2020-10-25,2025-09-18,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00326,Operations,OPS-T20,2,individual_contributor,remote,full_time,40.0,25-34,male,2017-08-11,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00329,Operations,OPS-T19,4,manager,hybrid,full_time,40.0,55+,male,2021-01-19,2025-10-02,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00340,Operations,OPS-T17,2,individual_contributor,onsite,full_time,40.0,35-44,female,2018-02-22,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00341,Customer Support,SUP-T05,4,manager,onsite,full_time,40.0,35-44,female,2024-06-26,2025-10-07,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00342,Marketing,MKT-T04,1,individual_contributor,remote,full_time,40.0,25-34,female,2023-12-01,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00345,Marketing,MKT-T09,3,individual_contributor,hybrid,full_time,40.0,35-44,male,2021-01-13,2025-02-03,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00364,Engineering,ENG-T06,1,individual_contributor,hybrid,full_time,40.0,35-44,male,2023-04-24,2025-09-14,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00368,Customer Support,SUP-T08,2,individual_contributor,hybrid,full_time,40.0,25-34,male,2019-06-17,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00373,Engineering,ENG-T33,2,individual_contributor,hybrid,full_time,40.0,18-24,female,2022-11-22,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-00376,Engineering,ENG-T50,3,individual_contributor,hybrid,full_time,40.0,25-34,male,2021-01-12,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00378,Operations,OPS-T28,2,individual_contributor,onsite,full_time,40.0,45-54,female,2023-07-07,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00384,Customer Support,SUP-T26,3,team_lead,hybrid,full_time,40.0,25-34,male,2020-10-01,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00387,Sales,SAL-T32,3,individual_contributor,remote,full_time,40.0,25-34,female,2018-03-21,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-00396,Engineering,ENG-T01,2,individual_contributor,onsite,part_time,24.0,25-34,female,2022-02-25,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-00397,Engineering,ENG-T09,1,individual_contributor,remote,full_time,40.0,55+,male,2021-09-21,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00401,Customer Support,SUP-T34,1,individual_contributor,hybrid,full_time,40.0,25-34,female,2018-11-05,2025-02-06,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00413,Human Resources,HRM-T09,1,individual_contributor,hybrid,full_time,40.0,25-34,female,2015-06-17,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00420,Customer Support,SUP-T18,2,individual_contributor,onsite,full_time,40.0,45-54,non_binary,2017-11-22,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00424,Engineering,ENG-T60,2,individual_contributor,hybrid,full_time,40.0,35-44,female,2024-04-21,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00427,Sales,SAL-T06,2,individual_contributor,hybrid,part_time,24.0,35-44,female,2018-04-08,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00432,Engineering,ENG-T31,4,manager,hybrid,full_time,40.0,55+,female,2022-05-08,2025-07-02,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00433,Sales,SAL-T34,1,individual_contributor,hybrid,full_time,40.0,35-44,male,2021-10-04,2025-11-15,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00440,Sales,SAL-T05,1,individual_contributor,hybrid,full_time,40.0,55+,prefer_not_to_say,2023-10-17,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00442,Marketing,MKT-T09,3,individual_contributor,hybrid,full_time,40.0,35-44,female,2021-12-26,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-00448,Customer Support,SUP-T07,1,individual_contributor,hybrid,full_time,40.0,35-44,female,2018-09-09,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00451,Engineering,ENG-T34,2,individual_contributor,hybrid,full_time,40.0,35-44,female,2023-04-20,2025-03-09,voluntary,test,synthetic,burnoutiq_synthetic_v1
+SYN-00463,Customer Support,SUP-T15,3,individual_contributor,hybrid,full_time,40.0,35-44,female,2022-04-19,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-00464,Finance,FIN-T15,2,individual_contributor,hybrid,full_time,40.0,55+,male,2024-05-21,2025-02-13,voluntary,test,synthetic,burnoutiq_synthetic_v1
+SYN-00468,Customer Support,SUP-T38,3,individual_contributor,onsite,full_time,40.0,18-24,female,2019-11-05,2025-07-09,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00471,Customer Support,SUP-T35,3,individual_contributor,remote,full_time,40.0,18-24,male,2018-01-02,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00472,Customer Support,SUP-T25,1,individual_contributor,onsite,part_time,24.0,25-34,male,2020-08-24,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00480,Operations,OPS-T20,1,individual_contributor,hybrid,full_time,40.0,35-44,male,2015-06-11,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00489,Engineering,ENG-T05,1,individual_contributor,hybrid,full_time,40.0,18-24,female,2018-11-09,2025-09-02,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00505,Operations,OPS-T11,3,individual_contributor,onsite,full_time,40.0,45-54,female,2020-03-05,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00508,Sales,SAL-T14,2,individual_contributor,hybrid,full_time,40.0,25-34,non_binary,2021-09-15,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00514,Engineering,ENG-T40,3,team_lead,remote,full_time,40.0,25-34,male,2024-03-27,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-00518,Engineering,ENG-T05,1,individual_contributor,hybrid,full_time,40.0,25-34,male,2020-11-10,2025-05-16,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00540,Engineering,ENG-T40,4,manager,remote,full_time,40.0,45-54,female,2015-05-07,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00545,Sales,SAL-T08,1,individual_contributor,onsite,full_time,40.0,35-44,male,2023-09-19,2025-03-10,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00548,Engineering,ENG-T54,4,manager,onsite,full_time,40.0,25-34,male,2022-12-03,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00550,Engineering,ENG-T35,1,individual_contributor,remote,full_time,40.0,25-34,female,2016-03-10,2025-06-10,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00557,Engineering,ENG-T57,3,individual_contributor,remote,full_time,40.0,35-44,female,2024-03-22,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00562,Operations,OPS-T05,1,individual_contributor,onsite,full_time,40.0,45-54,male,2022-05-25,2025-04-01,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00563,Engineering,ENG-T04,4,manager,onsite,full_time,40.0,25-34,male,2023-11-11,2025-09-04,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00577,Marketing,MKT-T02,4,manager,onsite,full_time,40.0,25-34,female,2021-08-14,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-00579,Operations,OPS-T32,1,individual_contributor,hybrid,full_time,40.0,45-54,female,2012-04-01,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-00580,Operations,OPS-T02,1,individual_contributor,onsite,full_time,40.0,55+,male,2018-12-03,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00591,Customer Support,SUP-T31,2,individual_contributor,remote,full_time,40.0,25-34,male,2020-10-04,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00596,Marketing,MKT-T21,2,individual_contributor,hybrid,full_time,40.0,25-34,female,2024-02-08,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00603,Engineering,ENG-T09,1,individual_contributor,hybrid,full_time,40.0,35-44,male,2020-06-07,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00610,Sales,SAL-T01,5,senior_manager,hybrid,full_time,40.0,35-44,male,2023-02-19,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00620,Sales,SAL-T36,1,individual_contributor,onsite,full_time,40.0,35-44,female,2021-02-26,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00636,Customer Support,SUP-T36,3,individual_contributor,onsite,full_time,40.0,25-34,female,2018-05-23,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00638,Human Resources,HRM-T04,3,individual_contributor,remote,full_time,40.0,25-34,male,2019-12-12,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-00639,Customer Support,SUP-T01,4,manager,onsite,full_time,40.0,25-34,male,2017-12-24,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00640,Operations,OPS-T29,1,individual_contributor,onsite,full_time,40.0,35-44,female,2019-02-23,2025-06-03,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00641,Engineering,ENG-T19,2,individual_contributor,remote,full_time,40.0,55+,male,2022-12-05,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-00652,Operations,OPS-T24,1,individual_contributor,hybrid,full_time,40.0,18-24,male,2023-04-22,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00653,Engineering,ENG-T01,2,individual_contributor,remote,full_time,40.0,35-44,male,2017-02-02,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00659,Engineering,ENG-T49,4,manager,hybrid,full_time,40.0,35-44,female,2023-02-20,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00665,Operations,OPS-T12,1,individual_contributor,hybrid,full_time,40.0,35-44,female,2024-04-04,2025-12-07,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00685,Operations,OPS-T01,1,individual_contributor,onsite,part_time,24.0,25-34,male,2018-10-13,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-00689,Operations,OPS-T28,4,manager,onsite,full_time,40.0,45-54,male,2016-02-10,2025-03-16,voluntary,test,synthetic,burnoutiq_synthetic_v1
+SYN-00702,Sales,SAL-T35,2,individual_contributor,hybrid,full_time,40.0,35-44,female,2024-09-13,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-00703,Finance,FIN-T12,3,team_lead,hybrid,full_time,40.0,55+,female,2014-11-13,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-00714,Customer Support,SUP-T36,2,individual_contributor,remote,full_time,40.0,25-34,male,2023-07-26,2025-06-01,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00716,Engineering,ENG-T03,3,individual_contributor,hybrid,full_time,40.0,45-54,female,2021-05-09,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00717,Sales,SAL-T32,2,individual_contributor,remote,full_time,40.0,35-44,male,2021-03-27,2025-10-01,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00722,Marketing,MKT-T11,1,individual_contributor,hybrid,full_time,40.0,35-44,male,2024-06-19,2025-11-08,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00730,Engineering,ENG-T29,2,individual_contributor,onsite,full_time,40.0,35-44,male,2024-05-13,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00735,Engineering,ENG-T39,2,individual_contributor,hybrid,full_time,40.0,35-44,male,2023-08-20,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00736,Human Resources,HRM-T15,1,individual_contributor,remote,part_time,24.0,18-24,male,2019-11-21,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00739,Marketing,MKT-T21,2,individual_contributor,onsite,full_time,40.0,55+,female,2023-08-05,2025-07-02,involuntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00740,Sales,SAL-T10,1,individual_contributor,hybrid,full_time,40.0,18-24,female,2023-05-05,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00743,Customer Support,SUP-T27,1,individual_contributor,onsite,full_time,40.0,25-34,male,2019-12-23,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00745,Engineering,ENG-T25,1,individual_contributor,remote,part_time,24.0,25-34,male,2017-09-08,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00752,Customer Support,SUP-T25,2,individual_contributor,hybrid,full_time,40.0,45-54,female,2020-05-19,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-00756,Finance,FIN-T05,3,individual_contributor,hybrid,full_time,40.0,25-34,male,2021-11-10,2025-05-08,voluntary,test,synthetic,burnoutiq_synthetic_v1
+SYN-00759,Sales,SAL-T29,2,individual_contributor,hybrid,full_time,40.0,35-44,female,2023-07-06,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-00770,Sales,SAL-T23,4,manager,hybrid,part_time,24.0,45-54,male,2021-04-14,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00789,Engineering,ENG-T34,1,individual_contributor,hybrid,part_time,24.0,35-44,female,2020-03-04,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00803,Engineering,ENG-T37,1,individual_contributor,remote,full_time,40.0,55+,male,2022-02-01,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00804,Engineering,ENG-T34,3,team_lead,hybrid,full_time,40.0,45-54,male,2022-04-27,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00805,Customer Support,SUP-T06,2,individual_contributor,hybrid,full_time,40.0,35-44,female,2018-09-28,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00807,Customer Support,SUP-T23,3,individual_contributor,hybrid,part_time,24.0,55+,female,2020-09-04,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00811,Marketing,MKT-T19,4,manager,hybrid,full_time,40.0,25-34,male,2017-06-09,2025-03-11,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00821,Marketing,MKT-T20,1,individual_contributor,onsite,full_time,40.0,35-44,male,2015-08-04,2025-06-15,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00825,Sales,SAL-T01,3,individual_contributor,remote,full_time,40.0,45-54,female,2022-03-13,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-00831,Operations,OPS-T25,1,individual_contributor,onsite,full_time,40.0,35-44,male,2017-09-13,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00838,Customer Support,SUP-T27,1,individual_contributor,hybrid,full_time,40.0,25-34,male,2021-11-03,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00841,Engineering,ENG-T10,2,individual_contributor,hybrid,full_time,40.0,25-34,male,2021-07-08,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00846,Engineering,ENG-T07,2,individual_contributor,remote,full_time,40.0,25-34,male,2021-09-10,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00848,Operations,OPS-T24,2,individual_contributor,hybrid,full_time,40.0,45-54,male,2020-06-11,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-00849,Marketing,MKT-T02,3,individual_contributor,hybrid,full_time,40.0,18-24,male,2022-10-02,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00863,Sales,SAL-T15,3,individual_contributor,onsite,full_time,40.0,45-54,male,2022-10-09,2025-05-07,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00864,Engineering,ENG-T29,4,manager,hybrid,full_time,40.0,35-44,female,2024-09-27,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00865,Operations,OPS-T08,1,individual_contributor,remote,full_time,40.0,35-44,female,2023-02-08,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00869,Customer Support,SUP-T02,3,team_lead,hybrid,full_time,40.0,45-54,female,2024-01-01,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00877,Customer Support,SUP-T25,5,senior_manager,onsite,full_time,40.0,25-34,prefer_not_to_say,2021-08-07,2025-02-02,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00883,Engineering,ENG-T35,2,individual_contributor,hybrid,full_time,40.0,35-44,male,2022-12-07,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00896,Engineering,ENG-T43,2,individual_contributor,onsite,full_time,40.0,35-44,male,2023-06-19,2025-02-11,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00906,Human Resources,HRM-T09,1,individual_contributor,hybrid,full_time,40.0,25-34,female,2023-06-27,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-00921,Sales,SAL-T31,2,individual_contributor,remote,full_time,40.0,45-54,male,2016-01-11,2025-07-13,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00922,Engineering,ENG-T19,2,individual_contributor,hybrid,full_time,40.0,35-44,male,2021-06-20,2025-07-14,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00924,Operations,OPS-T07,3,individual_contributor,onsite,full_time,40.0,25-34,male,2023-06-28,2025-07-09,voluntary,test,synthetic,burnoutiq_synthetic_v1
+SYN-00928,Sales,SAL-T23,4,manager,hybrid,full_time,40.0,45-54,male,2019-06-16,2025-09-06,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00937,Marketing,MKT-T21,2,individual_contributor,remote,full_time,40.0,35-44,male,2022-11-28,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00944,Sales,SAL-T19,1,individual_contributor,onsite,full_time,40.0,18-24,female,2023-09-16,2025-11-14,involuntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00946,Engineering,ENG-T04,3,individual_contributor,onsite,full_time,40.0,25-34,female,2019-10-02,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00952,Operations,OPS-T05,4,manager,remote,full_time,40.0,35-44,male,2020-08-17,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00956,Engineering,ENG-T18,1,individual_contributor,hybrid,full_time,40.0,18-24,male,2024-06-16,2025-03-12,involuntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00962,Customer Support,SUP-T11,3,individual_contributor,onsite,full_time,40.0,25-34,female,2022-04-18,2025-02-14,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00971,Engineering,ENG-T11,4,manager,hybrid,full_time,40.0,35-44,female,2023-09-18,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-00978,Customer Support,SUP-T34,3,individual_contributor,onsite,full_time,40.0,18-24,male,2022-11-16,2025-06-15,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00986,Sales,SAL-T15,3,individual_contributor,remote,full_time,40.0,25-34,male,2022-08-16,2025-11-13,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-00987,Customer Support,SUP-T14,5,senior_manager,onsite,full_time,40.0,25-34,male,2020-02-11,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01003,Marketing,MKT-T16,4,manager,remote,full_time,40.0,45-54,male,2021-12-18,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-01012,Engineering,ENG-T33,1,individual_contributor,hybrid,full_time,40.0,25-34,male,2022-03-18,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01016,Engineering,ENG-T07,2,individual_contributor,hybrid,part_time,24.0,25-34,female,2024-02-01,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01019,Human Resources,HRM-T03,2,individual_contributor,onsite,part_time,24.0,25-34,male,2021-09-21,2025-04-16,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01023,Finance,FIN-T06,3,individual_contributor,remote,full_time,40.0,25-34,male,2024-01-20,2025-05-09,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01039,Engineering,ENG-T31,1,individual_contributor,hybrid,full_time,40.0,35-44,male,2016-04-03,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01040,Human Resources,HRM-T15,2,individual_contributor,onsite,full_time,40.0,35-44,male,2022-05-03,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-01045,Engineering,ENG-T27,2,individual_contributor,hybrid,full_time,40.0,55+,female,2020-03-08,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01049,Sales,SAL-T34,2,individual_contributor,hybrid,full_time,40.0,55+,female,2020-02-15,2025-02-08,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01063,Operations,OPS-T07,1,individual_contributor,remote,full_time,40.0,35-44,male,2021-10-19,2025-02-14,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01075,Operations,OPS-T18,1,individual_contributor,hybrid,full_time,40.0,25-34,male,2020-11-25,2025-02-06,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01076,Sales,SAL-T36,5,senior_manager,hybrid,full_time,40.0,25-34,female,2023-09-20,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01083,Customer Support,SUP-T29,3,team_lead,onsite,full_time,40.0,55+,male,2023-09-14,2025-04-01,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01089,Human Resources,HRM-T16,2,individual_contributor,hybrid,full_time,40.0,25-34,male,2022-03-16,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01091,Operations,OPS-T24,2,individual_contributor,hybrid,full_time,40.0,35-44,female,2023-05-07,2025-02-13,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01103,Customer Support,SUP-T24,2,individual_contributor,onsite,full_time,40.0,18-24,male,2023-12-19,2025-06-01,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01107,Finance,FIN-T08,3,individual_contributor,hybrid,full_time,40.0,35-44,male,2014-11-09,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-01115,Customer Support,SUP-T19,1,individual_contributor,onsite,full_time,40.0,35-44,female,2024-08-02,2025-12-05,voluntary,test,synthetic,burnoutiq_synthetic_v1
+SYN-01120,Human Resources,HRM-T11,2,individual_contributor,remote,full_time,40.0,25-34,female,2023-11-12,2025-07-08,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01121,Operations,OPS-T15,4,manager,onsite,full_time,40.0,35-44,female,2020-05-24,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01123,Engineering,ENG-T07,2,individual_contributor,remote,full_time,40.0,35-44,male,2019-11-28,2025-02-06,voluntary,test,synthetic,burnoutiq_synthetic_v1
+SYN-01124,Marketing,MKT-T08,4,manager,hybrid,full_time,40.0,25-34,female,2021-05-03,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01129,Operations,OPS-T29,1,individual_contributor,hybrid,full_time,40.0,35-44,female,2021-02-13,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01134,Finance,FIN-T10,2,individual_contributor,hybrid,full_time,40.0,25-34,female,2016-03-04,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01140,Sales,SAL-T21,1,individual_contributor,hybrid,full_time,40.0,18-24,female,2022-10-02,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01147,Human Resources,HRM-T13,2,individual_contributor,remote,full_time,40.0,35-44,female,2022-02-11,2025-02-02,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01154,Human Resources,HRM-T12,2,individual_contributor,onsite,full_time,40.0,25-34,prefer_not_to_say,2023-12-23,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01157,Engineering,ENG-T58,2,individual_contributor,remote,full_time,40.0,18-24,female,2008-01-27,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01159,Engineering,ENG-T52,1,individual_contributor,onsite,full_time,40.0,25-34,prefer_not_to_say,2022-10-28,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01160,Customer Support,SUP-T28,2,individual_contributor,onsite,full_time,40.0,25-34,female,2020-05-23,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01166,Finance,FIN-T05,5,senior_manager,remote,full_time,40.0,35-44,male,2020-04-14,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01171,Operations,OPS-T25,5,senior_manager,onsite,full_time,40.0,55+,male,2023-01-02,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01173,Sales,SAL-T31,3,team_lead,onsite,full_time,40.0,35-44,female,2022-08-08,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01181,Customer Support,SUP-T21,3,team_lead,remote,full_time,40.0,25-34,male,2018-11-20,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01182,Marketing,MKT-T02,1,individual_contributor,remote,full_time,40.0,55+,female,2016-10-23,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-01187,Finance,FIN-T05,1,individual_contributor,hybrid,full_time,40.0,45-54,prefer_not_to_say,2019-12-07,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01192,Sales,SAL-T18,4,manager,hybrid,full_time,40.0,25-34,male,2021-08-18,2025-09-17,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01195,Customer Support,SUP-T38,3,individual_contributor,onsite,full_time,40.0,35-44,female,2021-03-16,2025-07-06,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01196,Engineering,ENG-T34,3,team_lead,hybrid,full_time,40.0,25-34,male,2017-07-21,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01200,Operations,OPS-T12,1,individual_contributor,hybrid,full_time,40.0,25-34,female,2017-03-02,2025-10-14,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01204,Sales,SAL-T12,2,individual_contributor,onsite,full_time,40.0,25-34,female,2019-03-03,2025-07-14,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01206,Engineering,ENG-T13,2,individual_contributor,hybrid,full_time,40.0,25-34,male,2023-11-11,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01222,Marketing,MKT-T14,2,individual_contributor,hybrid,full_time,40.0,55+,female,2023-07-22,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-01226,Sales,SAL-T36,1,individual_contributor,hybrid,part_time,24.0,25-34,male,2022-01-15,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01228,Customer Support,SUP-T33,3,individual_contributor,onsite,full_time,40.0,35-44,male,2022-11-22,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01233,Customer Support,SUP-T27,1,individual_contributor,onsite,full_time,40.0,35-44,prefer_not_to_say,2024-05-14,2025-06-16,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01234,Marketing,MKT-T19,3,team_lead,hybrid,full_time,40.0,55+,male,2023-08-15,2025-07-03,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01235,Customer Support,SUP-T07,3,individual_contributor,onsite,full_time,40.0,25-34,female,2020-07-12,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01236,Engineering,ENG-T19,2,individual_contributor,hybrid,full_time,40.0,55+,male,2024-07-04,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01241,Operations,OPS-T30,1,individual_contributor,onsite,full_time,40.0,25-34,male,2019-05-24,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01245,Marketing,MKT-T21,4,manager,onsite,part_time,24.0,45-54,non_binary,2013-03-05,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01257,Operations,OPS-T11,1,individual_contributor,hybrid,full_time,40.0,18-24,male,2022-09-28,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01264,Customer Support,SUP-T21,3,individual_contributor,hybrid,full_time,40.0,25-34,male,2024-04-18,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01269,Engineering,ENG-T11,3,team_lead,hybrid,full_time,40.0,35-44,female,2018-03-04,2025-03-14,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01270,Sales,SAL-T11,2,individual_contributor,onsite,full_time,40.0,45-54,male,2018-09-28,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01272,Operations,OPS-T19,3,team_lead,onsite,full_time,40.0,25-34,male,2021-05-09,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01282,Operations,OPS-T29,4,manager,onsite,full_time,40.0,45-54,female,2023-04-28,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01287,Customer Support,SUP-T05,2,individual_contributor,hybrid,full_time,40.0,35-44,female,2024-04-07,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01288,Marketing,MKT-T10,1,individual_contributor,hybrid,full_time,40.0,35-44,male,2019-08-09,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01289,Engineering,ENG-T22,1,individual_contributor,hybrid,full_time,40.0,35-44,female,2019-09-23,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01295,Operations,OPS-T30,3,team_lead,onsite,full_time,40.0,35-44,female,2017-02-13,2025-12-16,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01302,Marketing,MKT-T01,2,individual_contributor,remote,part_time,24.0,25-34,male,2021-11-11,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01305,Engineering,ENG-T27,2,individual_contributor,hybrid,full_time,40.0,25-34,female,2019-01-02,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01308,Customer Support,SUP-T04,3,individual_contributor,hybrid,full_time,40.0,35-44,female,2023-07-22,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01310,Customer Support,SUP-T32,1,individual_contributor,onsite,full_time,40.0,35-44,female,2022-10-08,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01314,Engineering,ENG-T33,2,individual_contributor,remote,full_time,40.0,25-34,non_binary,2023-03-21,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-01319,Marketing,MKT-T09,4,manager,hybrid,full_time,40.0,45-54,female,2022-12-06,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-01325,Engineering,ENG-T22,2,individual_contributor,onsite,full_time,40.0,18-24,male,2022-03-14,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-01334,Operations,OPS-T04,2,individual_contributor,hybrid,full_time,40.0,25-34,male,2021-04-15,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01349,Sales,SAL-T09,1,individual_contributor,hybrid,full_time,40.0,55+,male,2013-11-07,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01351,Marketing,MKT-T12,2,individual_contributor,hybrid,full_time,40.0,45-54,male,2024-01-26,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01352,Engineering,ENG-T51,4,manager,onsite,full_time,40.0,18-24,female,2022-10-08,2025-04-05,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01353,Customer Support,SUP-T04,1,individual_contributor,hybrid,full_time,40.0,25-34,non_binary,2021-04-24,2025-05-15,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01361,Engineering,ENG-T56,3,team_lead,onsite,full_time,40.0,18-24,male,2022-03-11,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-01362,Marketing,MKT-T05,2,individual_contributor,onsite,full_time,40.0,35-44,female,2023-08-01,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01364,Human Resources,HRM-T07,2,individual_contributor,onsite,full_time,40.0,25-34,male,2022-04-05,2025-10-09,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01369,Human Resources,HRM-T16,1,individual_contributor,hybrid,full_time,40.0,45-54,male,2021-07-28,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01375,Engineering,ENG-T50,1,individual_contributor,onsite,full_time,40.0,18-24,male,2019-03-25,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01380,Engineering,ENG-T04,1,individual_contributor,onsite,part_time,24.0,55+,male,2021-10-06,2025-07-04,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01383,Operations,OPS-T03,4,manager,hybrid,full_time,40.0,45-54,male,2021-06-08,2025-07-04,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01390,Human Resources,HRM-T12,2,individual_contributor,remote,full_time,40.0,35-44,female,2022-02-11,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01396,Finance,FIN-T14,2,individual_contributor,onsite,full_time,40.0,45-54,male,2023-01-18,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-01399,Sales,SAL-T35,1,individual_contributor,onsite,full_time,40.0,35-44,female,2013-07-25,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01406,Engineering,ENG-T32,2,individual_contributor,hybrid,full_time,40.0,35-44,female,2022-08-04,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01409,Operations,OPS-T17,1,individual_contributor,hybrid,full_time,40.0,25-34,male,2021-12-05,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01418,Engineering,ENG-T59,3,individual_contributor,hybrid,full_time,40.0,25-34,male,2023-12-09,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-01422,Sales,SAL-T02,2,individual_contributor,remote,full_time,40.0,35-44,male,2021-12-20,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01424,Customer Support,SUP-T21,5,senior_manager,hybrid,part_time,24.0,35-44,female,2021-06-16,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01432,Customer Support,SUP-T18,3,team_lead,onsite,full_time,40.0,35-44,male,2021-02-11,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01433,Engineering,ENG-T52,2,individual_contributor,remote,full_time,40.0,35-44,male,2022-06-21,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-01437,Operations,OPS-T19,5,senior_manager,onsite,full_time,40.0,35-44,male,2021-06-14,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01445,Marketing,MKT-T03,2,individual_contributor,remote,full_time,40.0,25-34,male,2018-09-06,2025-05-01,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01449,Customer Support,SUP-T27,1,individual_contributor,remote,full_time,40.0,25-34,male,2024-06-19,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01454,Engineering,ENG-T34,4,manager,onsite,full_time,40.0,45-54,female,2019-08-26,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01458,Sales,SAL-T18,1,individual_contributor,onsite,full_time,40.0,35-44,female,2016-04-17,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01480,Engineering,ENG-T24,2,individual_contributor,onsite,full_time,40.0,25-34,female,2022-02-24,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-01481,Operations,OPS-T28,1,individual_contributor,onsite,full_time,40.0,35-44,male,2021-01-08,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-01491,Engineering,ENG-T43,2,individual_contributor,hybrid,full_time,40.0,25-34,male,2021-10-22,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01498,Sales,SAL-T11,3,individual_contributor,onsite,full_time,40.0,45-54,male,2023-01-27,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-01504,Customer Support,SUP-T13,2,individual_contributor,hybrid,part_time,24.0,25-34,female,2018-12-18,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01517,Engineering,ENG-T11,3,individual_contributor,hybrid,full_time,40.0,25-34,female,2021-12-11,2025-05-02,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01521,Operations,OPS-T09,2,individual_contributor,remote,full_time,40.0,45-54,female,2020-07-24,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01532,Finance,FIN-T08,4,manager,onsite,full_time,40.0,45-54,male,2014-09-03,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01534,Marketing,MKT-T03,2,individual_contributor,onsite,full_time,40.0,35-44,male,2023-01-12,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01540,Engineering,ENG-T49,1,individual_contributor,hybrid,full_time,40.0,25-34,male,2018-09-01,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01546,Engineering,ENG-T49,2,individual_contributor,hybrid,full_time,40.0,25-34,female,2016-05-27,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01554,Customer Support,SUP-T14,5,senior_manager,remote,full_time,40.0,55+,male,2021-06-26,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01559,Operations,OPS-T31,1,individual_contributor,onsite,full_time,40.0,45-54,male,2023-02-13,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-01585,Customer Support,SUP-T02,1,individual_contributor,onsite,part_time,24.0,25-34,female,2024-06-26,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01591,Finance,FIN-T18,2,individual_contributor,remote,full_time,40.0,35-44,male,2021-04-11,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-01593,Sales,SAL-T12,3,individual_contributor,remote,full_time,40.0,35-44,male,2019-06-03,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-01597,Marketing,MKT-T16,4,manager,onsite,full_time,40.0,25-34,male,2023-11-02,2025-12-02,voluntary,test,synthetic,burnoutiq_synthetic_v1
+SYN-01601,Human Resources,HRM-T17,1,individual_contributor,hybrid,full_time,40.0,45-54,male,2020-07-13,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01603,Sales,SAL-T11,1,individual_contributor,hybrid,full_time,40.0,45-54,male,2020-09-10,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01607,Engineering,ENG-T37,3,individual_contributor,hybrid,full_time,40.0,35-44,male,2022-07-22,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-01610,Sales,SAL-T35,2,individual_contributor,onsite,full_time,40.0,35-44,female,2023-07-19,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01619,Operations,OPS-T02,1,individual_contributor,onsite,full_time,40.0,35-44,female,2020-03-02,2025-02-11,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01625,Marketing,MKT-T11,1,individual_contributor,remote,full_time,40.0,25-34,male,2020-05-09,2025-03-11,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01627,Finance,FIN-T10,2,individual_contributor,hybrid,full_time,40.0,25-34,male,2020-09-14,2025-03-16,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01628,Engineering,ENG-T38,2,individual_contributor,hybrid,part_time,24.0,45-54,male,2021-08-24,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-01638,Sales,SAL-T28,2,individual_contributor,hybrid,full_time,40.0,25-34,male,2020-09-04,2025-09-16,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01646,Marketing,MKT-T11,4,manager,hybrid,full_time,40.0,35-44,male,2020-12-25,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01652,Human Resources,HRM-T11,2,individual_contributor,hybrid,full_time,40.0,18-24,female,2024-12-12,2025-10-07,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01662,Engineering,ENG-T08,2,individual_contributor,hybrid,full_time,40.0,18-24,male,2022-08-16,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-01671,Operations,OPS-T22,1,individual_contributor,hybrid,full_time,40.0,45-54,male,2011-08-05,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-01673,Sales,SAL-T06,2,individual_contributor,hybrid,full_time,40.0,35-44,female,2022-07-19,2025-04-05,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01674,Customer Support,SUP-T02,5,senior_manager,onsite,full_time,40.0,55+,male,2023-10-14,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-01682,Finance,FIN-T14,2,individual_contributor,remote,full_time,40.0,45-54,female,2023-05-21,2025-06-11,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01696,Engineering,ENG-T58,2,individual_contributor,remote,full_time,40.0,25-34,male,2021-01-26,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01697,Operations,OPS-T09,4,manager,hybrid,full_time,40.0,25-34,female,2023-07-12,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01699,Customer Support,SUP-T21,1,individual_contributor,onsite,full_time,40.0,25-34,female,2019-06-10,2025-02-06,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01701,Sales,SAL-T31,3,team_lead,onsite,full_time,40.0,25-34,female,2022-02-12,2025-06-18,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01716,Engineering,ENG-T20,4,manager,hybrid,full_time,40.0,25-34,male,2021-09-06,2025-09-16,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01719,Engineering,ENG-T54,2,individual_contributor,hybrid,full_time,40.0,25-34,female,2020-12-27,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01724,Engineering,ENG-T13,3,team_lead,hybrid,full_time,40.0,35-44,female,2017-02-06,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-01734,Finance,FIN-T01,4,manager,hybrid,full_time,40.0,25-34,male,2023-10-18,2025-05-03,voluntary,test,synthetic,burnoutiq_synthetic_v1
+SYN-01737,Sales,SAL-T08,3,team_lead,remote,part_time,24.0,45-54,male,2023-09-07,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01738,Customer Support,SUP-T26,2,individual_contributor,onsite,full_time,40.0,25-34,male,2020-10-06,2025-03-05,voluntary,test,synthetic,burnoutiq_synthetic_v1
+SYN-01758,Finance,FIN-T08,1,individual_contributor,remote,full_time,40.0,25-34,female,2010-05-21,2025-08-05,voluntary,test,synthetic,burnoutiq_synthetic_v1
+SYN-01760,Sales,SAL-T28,3,team_lead,remote,full_time,40.0,25-34,male,2016-10-22,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01761,Engineering,ENG-T04,3,team_lead,hybrid,full_time,40.0,45-54,male,2020-11-06,2025-10-05,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01767,Engineering,ENG-T09,3,individual_contributor,hybrid,full_time,40.0,25-34,female,2021-07-10,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01775,Customer Support,SUP-T30,2,individual_contributor,onsite,full_time,40.0,25-34,male,2022-05-03,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-01780,Engineering,ENG-T49,1,individual_contributor,remote,full_time,40.0,25-34,female,2023-02-28,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-01783,Sales,SAL-T25,4,manager,hybrid,full_time,40.0,25-34,female,2022-02-06,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01794,Operations,OPS-T03,1,individual_contributor,onsite,full_time,40.0,55+,male,2024-02-22,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01795,Operations,OPS-T13,3,individual_contributor,onsite,full_time,40.0,25-34,male,2022-06-20,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01813,Customer Support,SUP-T37,1,individual_contributor,remote,full_time,40.0,35-44,male,2016-05-14,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-01814,Human Resources,HRM-T07,2,individual_contributor,hybrid,full_time,40.0,35-44,male,2021-08-11,2025-08-15,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01820,Sales,SAL-T35,4,manager,remote,full_time,40.0,45-54,male,2023-02-16,2025-12-03,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01821,Customer Support,SUP-T26,1,individual_contributor,onsite,full_time,40.0,45-54,male,2024-10-16,2025-11-08,voluntary,test,synthetic,burnoutiq_synthetic_v1
+SYN-01822,Engineering,ENG-T12,4,manager,onsite,part_time,24.0,35-44,male,2024-04-25,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01825,Customer Support,SUP-T10,2,individual_contributor,onsite,full_time,40.0,25-34,male,2022-11-20,2025-12-15,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01835,Sales,SAL-T02,2,individual_contributor,hybrid,full_time,40.0,45-54,female,2022-01-21,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01840,Customer Support,SUP-T32,1,individual_contributor,onsite,full_time,40.0,25-34,male,2019-05-09,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01845,Sales,SAL-T18,2,individual_contributor,hybrid,full_time,40.0,35-44,male,2021-02-17,2025-08-02,voluntary,test,synthetic,burnoutiq_synthetic_v1
+SYN-01846,Engineering,ENG-T28,2,individual_contributor,onsite,full_time,40.0,35-44,male,2020-05-06,2025-12-04,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01853,Sales,SAL-T01,1,individual_contributor,onsite,full_time,40.0,45-54,female,2021-02-15,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01855,Human Resources,HRM-T01,3,individual_contributor,hybrid,full_time,40.0,25-34,male,2016-07-07,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-01864,Customer Support,SUP-T01,1,individual_contributor,hybrid,full_time,40.0,25-34,male,2022-04-21,2025-06-17,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01872,Customer Support,SUP-T09,3,team_lead,onsite,full_time,40.0,25-34,male,2012-12-25,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01875,Engineering,ENG-T02,4,manager,onsite,full_time,40.0,25-34,female,2023-09-16,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-01880,Human Resources,HRM-T09,2,individual_contributor,hybrid,full_time,40.0,35-44,female,2021-08-17,2025-03-10,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01885,Sales,SAL-T30,1,individual_contributor,onsite,full_time,40.0,25-34,female,2022-09-15,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01887,Customer Support,SUP-T08,1,individual_contributor,hybrid,full_time,40.0,55+,female,2020-03-09,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01894,Human Resources,HRM-T07,3,team_lead,hybrid,full_time,40.0,25-34,male,2016-05-10,2025-09-17,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01902,Engineering,ENG-T08,2,individual_contributor,remote,full_time,40.0,35-44,female,2024-04-08,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-01927,Engineering,ENG-T24,1,individual_contributor,onsite,full_time,40.0,35-44,male,2019-09-17,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-01929,Engineering,ENG-T48,2,individual_contributor,remote,full_time,40.0,45-54,female,2024-01-18,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-01931,Operations,OPS-T35,2,individual_contributor,hybrid,full_time,40.0,45-54,female,2019-09-11,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01934,Customer Support,SUP-T35,3,individual_contributor,onsite,full_time,40.0,25-34,female,2018-07-26,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01940,Customer Support,SUP-T28,1,individual_contributor,onsite,full_time,40.0,25-34,male,2022-03-04,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01973,Operations,OPS-T31,3,individual_contributor,hybrid,full_time,40.0,35-44,female,2020-02-02,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01978,Human Resources,HRM-T04,3,individual_contributor,remote,full_time,40.0,25-34,non_binary,2022-11-06,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-01985,Human Resources,HRM-T02,4,manager,onsite,full_time,40.0,45-54,male,2018-06-20,2025-07-09,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-01989,Marketing,MKT-T14,2,individual_contributor,hybrid,full_time,40.0,25-34,female,2021-11-22,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01991,Operations,OPS-T24,3,individual_contributor,hybrid,full_time,40.0,25-34,male,2020-11-15,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-01996,Operations,OPS-T21,1,individual_contributor,onsite,full_time,40.0,35-44,female,2022-09-02,2025-10-05,voluntary,test,synthetic,burnoutiq_synthetic_v1
+SYN-02007,Finance,FIN-T08,2,individual_contributor,hybrid,part_time,24.0,45-54,male,2025-02-14,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02008,Human Resources,HRM-T08,2,individual_contributor,remote,full_time,40.0,25-34,prefer_not_to_say,2025-02-09,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02009,Sales,SAL-T10,2,individual_contributor,hybrid,full_time,40.0,18-24,male,2025-02-07,2025-10-16,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-02013,Marketing,MKT-T21,1,individual_contributor,remote,full_time,40.0,25-34,female,2025-02-07,2025-04-16,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-02031,Engineering,ENG-T11,5,senior_manager,hybrid,full_time,40.0,25-34,female,2025-02-09,2025-10-06,voluntary,test,synthetic,burnoutiq_synthetic_v1
+SYN-02035,Finance,FIN-T18,5,senior_manager,hybrid,full_time,40.0,45-54,male,2025-03-08,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02036,Engineering,ENG-T37,3,individual_contributor,hybrid,full_time,40.0,25-34,female,2025-03-10,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02040,Operations,OPS-T18,4,manager,onsite,full_time,40.0,35-44,female,2025-03-13,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02046,Engineering,ENG-T33,2,individual_contributor,hybrid,full_time,40.0,35-44,male,2025-03-08,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-02053,Operations,OPS-T33,2,individual_contributor,onsite,full_time,40.0,25-34,prefer_not_to_say,2025-03-10,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-02057,Operations,OPS-T13,1,individual_contributor,onsite,full_time,40.0,25-34,female,2025-03-06,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-02059,Engineering,ENG-T26,1,individual_contributor,hybrid,full_time,40.0,55+,male,2025-03-09,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02065,Customer Support,SUP-T03,2,individual_contributor,onsite,full_time,40.0,35-44,male,2025-03-10,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02067,Human Resources,HRM-T15,1,individual_contributor,hybrid,full_time,40.0,18-24,female,2025-03-06,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02079,Engineering,ENG-T59,3,team_lead,hybrid,full_time,40.0,55+,female,2025-04-02,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02080,Sales,SAL-T29,4,manager,hybrid,full_time,40.0,25-34,male,2025-04-07,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02088,Marketing,MKT-T20,1,individual_contributor,onsite,full_time,40.0,45-54,female,2025-04-14,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02101,Sales,SAL-T25,4,manager,onsite,full_time,40.0,35-44,male,2025-05-15,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02102,Engineering,ENG-T53,1,individual_contributor,hybrid,full_time,40.0,25-34,male,2025-05-13,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02108,Operations,OPS-T05,1,individual_contributor,onsite,full_time,40.0,45-54,female,2025-05-05,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02116,Sales,SAL-T28,1,individual_contributor,remote,full_time,40.0,25-34,male,2025-06-08,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02120,Operations,OPS-T29,1,individual_contributor,onsite,full_time,40.0,45-54,male,2025-06-09,2025-09-09,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-02127,Engineering,ENG-T33,4,manager,hybrid,full_time,40.0,25-34,male,2025-06-14,2025-07-15,voluntary,train,synthetic,burnoutiq_synthetic_v1
+SYN-02144,Operations,OPS-T02,5,senior_manager,remote,full_time,40.0,25-34,female,2025-07-12,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-02150,Customer Support,SUP-T09,4,manager,hybrid,part_time,24.0,55+,male,2025-07-12,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02157,Sales,SAL-T29,3,team_lead,onsite,full_time,40.0,35-44,male,2025-07-14,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02158,Engineering,ENG-T23,1,individual_contributor,hybrid,full_time,40.0,25-34,male,2025-07-06,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02167,Sales,SAL-T21,4,manager,onsite,full_time,40.0,55+,non_binary,2025-08-09,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02171,Operations,OPS-T18,1,individual_contributor,onsite,full_time,40.0,45-54,female,2025-08-03,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02176,Customer Support,SUP-T24,1,individual_contributor,onsite,full_time,40.0,45-54,male,2025-08-14,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02177,Customer Support,SUP-T20,3,team_lead,hybrid,full_time,40.0,18-24,female,2025-08-07,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02184,Engineering,ENG-T52,1,individual_contributor,remote,full_time,40.0,18-24,male,2025-08-01,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02192,Operations,OPS-T24,4,manager,onsite,full_time,40.0,45-54,female,2025-08-10,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-02193,Customer Support,SUP-T08,2,individual_contributor,onsite,full_time,40.0,18-24,female,2025-08-14,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02194,Sales,SAL-T16,4,manager,hybrid,full_time,40.0,35-44,female,2025-09-08,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02197,Marketing,MKT-T03,2,individual_contributor,hybrid,full_time,40.0,25-34,male,2025-09-09,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02198,Operations,OPS-T05,1,individual_contributor,onsite,full_time,40.0,35-44,female,2025-09-15,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02201,Sales,SAL-T25,3,individual_contributor,remote,full_time,40.0,18-24,female,2025-09-10,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02204,Customer Support,SUP-T07,1,individual_contributor,hybrid,full_time,40.0,25-34,male,2025-09-06,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02226,Customer Support,SUP-T23,4,manager,hybrid,full_time,40.0,45-54,male,2025-10-13,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02231,Customer Support,SUP-T36,1,individual_contributor,hybrid,full_time,40.0,25-34,female,2025-10-09,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-02233,Operations,OPS-T26,3,individual_contributor,hybrid,full_time,40.0,35-44,female,2025-10-11,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02235,Sales,SAL-T36,3,individual_contributor,onsite,full_time,40.0,18-24,female,2025-10-14,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02238,Operations,OPS-T21,3,individual_contributor,onsite,full_time,40.0,55+,female,2025-10-12,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02241,Engineering,ENG-T36,2,individual_contributor,hybrid,full_time,40.0,25-34,female,2025-10-07,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02244,Sales,SAL-T04,2,individual_contributor,remote,full_time,40.0,45-54,female,2025-11-08,,,test,synthetic,burnoutiq_synthetic_v1
+SYN-02248,Engineering,ENG-T49,3,individual_contributor,hybrid,full_time,40.0,35-44,male,2025-11-08,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02249,Human Resources,HRM-T12,5,senior_manager,hybrid,full_time,40.0,45-54,male,2025-11-02,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02258,Sales,SAL-T04,4,manager,onsite,full_time,40.0,25-34,female,2025-11-03,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02270,Marketing,MKT-T17,4,manager,hybrid,full_time,40.0,35-44,female,2025-12-04,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02277,Marketing,MKT-T22,1,individual_contributor,onsite,part_time,24.0,35-44,non_binary,2025-12-05,,,train,synthetic,burnoutiq_synthetic_v1
+SYN-02287,Finance,FIN-T17,4,manager,hybrid,full_time,40.0,25-34,male,2025-12-05,,,test,synthetic,burnoutiq_synthetic_v1

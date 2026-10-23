@@ -1,0 +1,5 @@
+dataset_name,provenance,sample_size,target_variable,target_scale,target_nature,data_type,operational_role
+Tech Mental Health Workforce,Kaggle/Enterprise Workforce Survey,150000,burnout_score,0.0 - 10.0 continuous,Observed/Derived composite load,Synthetic/Simulated enterprise cohort,Primary Training Set (Task A & Task B)
+HackerEarth Burnout Dataset,HackerEarth ML Competition,22750,Burn Rate (rescaled x10),0.0 - 10.0 continuous,Observed competition label,Competition benchmark,Isolated Benchmark (missing 8 telemetry features)
+Academic Librarian CBI Dataset,Kennesaw State DigitalCommons (Wood et al.),1598,cbi_work_score (CBI work subscale),0.0 - 100.0 psychometric scale,Direct observed survey responses,Real observed research data,Psychometric Validation Only (Commercial training restricted)
+Longitudinal Forecasting Dataset,Sequential workforce history,11764,target_next_cbi_work_score,0.0 - 100.0 (month t+1),Simulated next-period outcome,Simulated panel dataset,Longitudinal Forecasting Benchmark (Task C)

@@ -1,0 +1,34 @@
+{
+  "mean_baseline": {
+    "val_mae": 0.9215,
+    "val_rmse": 1.1078,
+    "val_r2": -0.0001,
+    "test_mae": 0.9253,
+    "test_rmse": 1.114,
+    "test_r2": -0.0
+  },
+  "ridge": {
+    "val_mae": 0.4928,
+    "val_rmse": 0.6181,
+    "val_r2": 0.6886,
+    "test_mae": 0.4953,
+    "test_rmse": 0.6227,
+    "test_r2": 0.6876
+  },
+  "random_forest": {
+    "val_mae": 0.4316,
+    "val_rmse": 0.5773,
+    "val_r2": 0.7283,
+    "test_mae": 0.433,
+    "test_rmse": 0.5778,
+    "test_r2": 0.7309
+  },
+  "hist_gradient_boosting": {
+    "val_mae": 0.4191,
+    "val_rmse": 0.5604,
+    "val_r2": 0.744,
+    "test_mae": 0.4221,
+    "test_rmse": 0.5629,
+    "test_r2": 0.7447
+  }
+}

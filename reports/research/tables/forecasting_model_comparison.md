@@ -1,0 +1,7 @@
+| model | mae | rmse | r2 |
+| --- | --- | --- | --- |
+| persistence_baseline | 8.7615 | 11.2149 | 0.5735 |
+| mean_baseline | 13.8457 | 17.2166 | -0.0051 |
+| ridge | 8.0491 | 10.1883 | 0.648 |
+| random_forest | 8.2771 | 10.4444 | 0.6301 |
+| hist_gradient_boosting | 8.2566 | 10.4128 | 0.6323 |

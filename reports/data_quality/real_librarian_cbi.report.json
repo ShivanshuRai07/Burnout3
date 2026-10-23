@@ -1,0 +1,116 @@
+{
+  "loader_version": "1.2.0",
+  "input_file": "Academic_Librarian_Burnout_Dataset.xlsx",
+  "input_sha256": "ca6d775172ddfde216e3565a20771eb306fb9ed861dc952a9a47a63dd40043b5",
+  "source_sheet": "Burnout+Research_August+26%2C+2",
+  "output_file": "D:\\Kartik\\SB_Miniproject_Kartik\\data\\processed\\real_librarian_cbi.csv",
+  "source_rows": 1836,
+  "output_rows": 1598,
+  "published_reported_sample_size": 1628,
+  "difference_vs_published_reported_sample_size": 30,
+  "consent_column": "ONLINE SURVEY CONSENT FORM\n\n \n\nTitle of Research Study: Academic Librarian Burnout: A survey using the Copenhagen Burnout Inventory (CBI)\n\n \n\nResearcher's Contact Information: Barbara A. Wood, MLIS, (470) 578-2560, bwood53@kennesaw.edu, Ana Guimaraes, MSL",
+  "eligibility_columns": {
+    "currently_works_in_us_academic_library": "Do you currently work in an academic library in the United States of America?",
+    "degree": "Do you have a Master's in Library Science, or other equivalent American Library Association accredited degree?",
+    "finished": "Finished"
+  },
+  "filters_applied": [
+    "explicit response indicating consent",
+    "currently works in an academic library in the United States = Yes",
+    "MLS or equivalent ALA-accredited degree = Yes",
+    "Finished = True",
+    "at least 4 valid CBI item responses"
+  ],
+  "row_counts": {
+    "raw_rows": 1836,
+    "explicit_consent_yes": 1836,
+    "finished_true": 1768,
+    "current_us_academic_library_yes": 1677,
+    "degree_eligibility_yes": 1640,
+    "all_7_CBI_items_answered": 1598,
+    "at_least_4_CBI_items_answered": 1598,
+    "eligible_and_scored_rows_exported": 1598
+  },
+  "item_columns_and_parsing": {
+    "cbi_w1": {
+      "source_column": "Please select the best response for each question. Only select one answer. - Is your work emotionally exhausting?",
+      "nonmissing_raw_answers": 1598,
+      "parsed_answers": 1598,
+      "unknown_nonmissing_answers": 0,
+      "score_mapping": "answer choice 1..5 -> 0,25,50,75,100; based on labelled response text"
+    },
+    "cbi_w2": {
+      "source_column": "Please select the best response for each question. Only select one answer. - Do you feel burnt out because of your work?",
+      "nonmissing_raw_answers": 1598,
+      "parsed_answers": 1598,
+      "unknown_nonmissing_answers": 0,
+      "score_mapping": "answer choice 1..5 -> 0,25,50,75,100; based on labelled response text"
+    },
+    "cbi_w3": {
+      "source_column": "Please select the best response for each question. Only select one answer. - Does your work frustrate you?",
+      "nonmissing_raw_answers": 1598,
+      "parsed_answers": 1598,
+      "unknown_nonmissing_answers": 0,
+      "score_mapping": "answer choice 1..5 -> 0,25,50,75,100; based on labelled response text"
+    },
+    "cbi_w4": {
+      "source_column": "Please select the best response for each question. Only select one answer. - Do you feel worn out at the end of the working day?",
+      "nonmissing_raw_answers": 1598,
+      "parsed_answers": 1598,
+      "unknown_nonmissing_answers": 0,
+      "score_mapping": "answer choice 1..5 -> 0,25,50,75,100; based on labelled response text"
+    },
+    "cbi_w5": {
+      "source_column": "Please select the best response for each question. Only select one answer. - Are you exhausted in the morning at the thought of another day of work?",
+      "nonmissing_raw_answers": 1598,
+      "parsed_answers": 1598,
+      "unknown_nonmissing_answers": 0,
+      "score_mapping": "answer choice 1..5 -> 0,25,50,75,100; based on labelled response text"
+    },
+    "cbi_w6": {
+      "source_column": "Please select the best response for each question. Only select one answer. - Do you feel that every working hour is tiring for you?",
+      "nonmissing_raw_answers": 1598,
+      "parsed_answers": 1598,
+      "unknown_nonmissing_answers": 0,
+      "score_mapping": "answer choice 1..5 -> 0,25,50,75,100; based on labelled response text"
+    },
+    "cbi_w7": {
+      "source_column": "Please select the best response for each question. Only select one answer. - Do you have enough energy for family and friends during leisure time?",
+      "nonmissing_raw_answers": 1598,
+      "parsed_answers": 1598,
+      "unknown_nonmissing_answers": 0,
+      "score_mapping": "answer choice 1..5 -> 0,25,50,75,100; based on labelled response text"
+    }
+  },
+  "quality_checks": {
+    "all_exported_rows_pass_filters": true,
+    "unique_assessment_ids": true,
+    "unique_synthetic_row_ids": true,
+    "no_duplicate_full_source_rows": true,
+    "source_duplicate_full_rows": 0,
+    "published_sample_size_reconciles": false,
+    "duplicate_recorded_timestamps_in_clean_export": 35,
+    "all_scores_between_0_and_100": true,
+    "all_item_scores_on_0_25_50_75_100_scale": true,
+    "score_recomputes_from_items_with_item7_reversed": true,
+    "alpha_calculated_on_complete_item_rows": 1598
+  },
+  "score_summary": {
+    "n_scored": 1598,
+    "mean": 49.669,
+    "sd": 20.593,
+    "min": 0.0,
+    "median": 50.0,
+    "max": 100.0,
+    "pct_score_ge_50": 52.13,
+    "cronbach_alpha_complete_rows": 0.8965,
+    "raw_item7_vs_items1to6_mean_correlation": -0.4618
+  },
+  "interpretation_and_limitations": [
+    "The CBI score is computed from the survey responses; it is not an independent label for training a model on those same item responses.",
+    "This is one cross-sectional survey of US academic librarians. It does not contain work hours, manager-support, collaboration metadata, or longitudinal follow-up needed to validate workplace early-warning or intervention-effectiveness claims.",
+    "The generated employee_id values are row-level pseudonyms created for schema compatibility; this workbook does not supply persistent employee identifiers.",
+    "Check the repository's current licence and permission requirements before commercial use."
+  ],
+  "unknown_answers": {}
+}

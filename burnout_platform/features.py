@@ -1,47 +1,29 @@
-"""Feature engineering module for the Burnout Platform.
+"""Feature preparation for the 0-10 snapshot models.
 
-Computes composite indexes: Workload Index, Wellness Score, Support Index, and Meeting Load.
+The models learn directly from the measured columns. Earlier versions added hand-weighted composite
+indexes (workload_index = 0.4*hours + 0.3*overtime + 0.2*meetings + 0.1*deadlines, a wellness score,
+a support index and a meeting-load ratio). Their weights had no source, double-counted overtime inside
+hours, gave meetings 20% although meetings are unrelated to burnout_score in the training data, and
+divided a 20-200 column by 100. Tree models gain nothing from fixed mixes of columns they already see,
+so the indexes were removed; the model learns how much each column matters.
 """
 from __future__ import annotations
-import numpy as np
+
 import pandas as pd
 
+DEFAULT_NUMERIC_FEATURES = [
+    "caffeine_intake", "deadlines_missed", "experience_years", "job_satisfaction",
+    "manager_support", "meetings_per_day", "overtime_hours", "physical_activity_days",
+    "screen_time_hours", "sleep_hours", "social_support_score", "stress_level",
+    "work_hours_per_week", "work_life_balance",
+]
+DEFAULT_CATEGORICAL_FEATURES = ["company_size", "job_role", "work_mode"]
+
+
 def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Return a copy with numeric feature columns coerced to numbers; no derived indexes."""
     df = df.copy()
-    
-    # 1. Workload Index: combined weight of work hours, overtime, meetings, and deadlines missed.
-    # We normalize each component, then compute a weighted sum.
-    hours_norm = df["work_hours_per_week"] / 40.0
-    overtime_norm = df["overtime_hours"] / 10.0
-    meetings_norm = df["meetings_per_day"] / 5.0
-    deadlines_norm = df["deadlines_missed"] / 3.0
-    
-    df["workload_index"] = (
-        hours_norm * 0.4 +
-        overtime_norm * 0.3 +
-        meetings_norm * 0.2 +
-        deadlines_norm * 0.1
-    ) * 100.0
-    
-    # 2. Wellness Score: combines sleep, physical activity, work life balance, and satisfaction.
-    sleep_norm = (df["sleep_hours"] / 8.0).clip(0.0, 1.2)
-    activity_norm = df["physical_activity_days"] / 7.0
-    balance_norm = df["work_life_balance"] / 100.0
-    satisfaction_norm = df["job_satisfaction"] / 100.0
-    
-    df["wellness_score"] = (
-        sleep_norm * 0.3 +
-        activity_norm * 0.2 +
-        balance_norm * 0.3 +
-        satisfaction_norm * 0.2
-    ) * 100.0
-    
-    # 3. Support Index
-    # Combines manager support and general social support if available, otherwise scales manager support.
-    df["support_index"] = df["manager_support"] # normalized 0-100
-    
-    # 4. Meeting Load Ratio
-    # ratio of meetings to standard 3 meetings per day
-    df["meeting_load"] = df["meetings_per_day"] / 3.0
-    
+    for col in DEFAULT_NUMERIC_FEATURES:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
     return df

@@ -1,0 +1,50 @@
+{
+  "majority_baseline": {
+    "test_roc_auc": 0.5,
+    "test_pr_auc": 0.1101,
+    "test_brier_score": 0.1101,
+    "test_f1_at_0_5": 0.0,
+    "test_precision_at_0_5": 0.0,
+    "test_recall_at_0_5": 0.0,
+    "val_optimal_threshold": 0.1,
+    "test_f1_at_val_threshold": 0.0,
+    "test_precision_at_val_threshold": 0.0,
+    "test_recall_at_val_threshold": 0.0
+  },
+  "logistic_regression": {
+    "test_roc_auc": 0.9524,
+    "test_pr_auc": 0.7391,
+    "test_brier_score": 0.0505,
+    "test_f1_at_0_5": 0.6367,
+    "test_precision_at_0_5": 0.7373,
+    "test_recall_at_0_5": 0.5603,
+    "val_optimal_threshold": 0.31,
+    "test_f1_at_val_threshold": 0.6693,
+    "test_precision_at_val_threshold": 0.6296,
+    "test_recall_at_val_threshold": 0.7144
+  },
+  "random_forest": {
+    "test_roc_auc": 0.9446,
+    "test_pr_auc": 0.7094,
+    "test_brier_score": 0.055,
+    "test_f1_at_0_5": 0.5571,
+    "test_precision_at_0_5": 0.7856,
+    "test_recall_at_0_5": 0.4316,
+    "val_optimal_threshold": 0.28,
+    "test_f1_at_val_threshold": 0.6451,
+    "test_precision_at_val_threshold": 0.5984,
+    "test_recall_at_val_threshold": 0.6996
+  },
+  "hist_gradient_boosting": {
+    "test_roc_auc": 0.9501,
+    "test_pr_auc": 0.7309,
+    "test_brier_score": 0.0512,
+    "test_f1_at_0_5": 0.6382,
+    "test_precision_at_0_5": 0.7236,
+    "test_recall_at_0_5": 0.5709,
+    "val_optimal_threshold": 0.35,
+    "test_f1_at_val_threshold": 0.6627,
+    "test_precision_at_val_threshold": 0.6383,
+    "test_recall_at_val_threshold": 0.689
+  }
+}

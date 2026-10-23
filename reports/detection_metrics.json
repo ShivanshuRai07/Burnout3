@@ -1,0 +1,170 @@
+{
+  "held_out_employees": 393,
+  "employee_months": 2415,
+  "periods": [
+    "2025-04",
+    "2025-10"
+  ],
+  "rci": 17.8,
+  "non_responding_months": 567,
+  "rules": {
+    "sustained_ahead": {
+      "current rule": {
+        "flag_rate": 20.4,
+        "precision": 22.2,
+        "recall": 50.9,
+        "f1": 30.9,
+        "true_positives": 87,
+        "false_alarms": 305,
+        "missed": 84,
+        "judged": 2142
+      },
+      "one month >= 50": {
+        "flag_rate": 11.1,
+        "precision": 43.2,
+        "recall": 48.0,
+        "f1": 45.4,
+        "true_positives": 82,
+        "false_alarms": 108,
+        "missed": 89,
+        "judged": 2142
+      },
+      "trajectory": {
+        "flag_rate": 8.1,
+        "precision": 43.7,
+        "recall": 34.5,
+        "f1": 38.6,
+        "true_positives": 59,
+        "false_alarms": 76,
+        "missed": 112,
+        "judged": 2142
+      },
+      "trajectory + missed surveys": {
+        "flag_rate": 13.1,
+        "precision": 45.5,
+        "recall": 56.1,
+        "f1": 50.3,
+        "true_positives": 96,
+        "false_alarms": 115,
+        "missed": 75,
+        "judged": 2142
+      }
+    },
+    "high_next": {
+      "current rule": {
+        "flag_rate": 20.4,
+        "precision": 37.4,
+        "recall": 46.2,
+        "f1": 41.3,
+        "true_positives": 163,
+        "false_alarms": 273,
+        "missed": 190,
+        "judged": 2220
+      },
+      "one month >= 50": {
+        "flag_rate": 11.1,
+        "precision": 63.4,
+        "recall": 40.8,
+        "f1": 49.7,
+        "true_positives": 144,
+        "false_alarms": 83,
+        "missed": 209,
+        "judged": 2220
+      },
+      "trajectory": {
+        "flag_rate": 8.1,
+        "precision": 64.4,
+        "recall": 29.7,
+        "f1": 40.7,
+        "true_positives": 105,
+        "false_alarms": 58,
+        "missed": 248,
+        "judged": 2220
+      },
+      "trajectory + missed surveys": {
+        "flag_rate": 13.1,
+        "precision": 65.3,
+        "recall": 47.9,
+        "f1": 55.2,
+        "true_positives": 169,
+        "false_alarms": 90,
+        "missed": 184,
+        "judged": 2220
+      }
+    }
+  },
+  "silent_positives": {
+    "current rule": {
+      "flag_rate": 1.8,
+      "precision": 66.7,
+      "recall": 7.0,
+      "f1": 12.7,
+      "true_positives": 4,
+      "false_alarms": 2,
+      "missed": 53,
+      "judged": 476
+    },
+    "one month >= 50": {
+      "flag_rate": 0.0,
+      "precision": NaN,
+      "recall": 0.0,
+      "f1": NaN,
+      "true_positives": 0,
+      "false_alarms": 0,
+      "missed": 57,
+      "judged": 476
+    },
+    "trajectory": {
+      "flag_rate": 0.0,
+      "precision": NaN,
+      "recall": 0.0,
+      "f1": NaN,
+      "true_positives": 0,
+      "false_alarms": 0,
+      "missed": 57,
+      "judged": 476
+    },
+    "trajectory + missed surveys": {
+      "flag_rate": 21.3,
+      "precision": 48.7,
+      "recall": 64.9,
+      "f1": 55.6,
+      "true_positives": 37,
+      "false_alarms": 39,
+      "missed": 20,
+      "judged": 476
+    }
+  },
+  "learned": {
+    "sustained_ahead": {
+      "this month only": {
+        "average_precision": 0.378,
+        "roc_auc": 0.822
+      },
+      "+ trajectory": {
+        "average_precision": 0.51,
+        "roc_auc": 0.917
+      },
+      "+ missed surveys": {
+        "average_precision": 0.555,
+        "roc_auc": 0.93
+      },
+      "base_rate": 0.08
+    },
+    "high_next": {
+      "this month only": {
+        "average_precision": 0.505,
+        "roc_auc": 0.802
+      },
+      "+ trajectory": {
+        "average_precision": 0.636,
+        "roc_auc": 0.888
+      },
+      "+ missed surveys": {
+        "average_precision": 0.66,
+        "roc_auc": 0.892
+      },
+      "base_rate": 0.159
+    }
+  }
+}

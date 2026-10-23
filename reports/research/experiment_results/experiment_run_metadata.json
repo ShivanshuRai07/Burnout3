@@ -1,0 +1,23 @@
+{
+  "timestamp": "2026-10-22 16:37:29 UTC",
+  "random_state": 42,
+  "python_version": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+  "library_versions": {
+    "numpy": "2.5.1",
+    "pandas": "3.0.5",
+    "scikit_learn": "1.9.0",
+    "matplotlib": "3.11.1",
+    "seaborn": "0.13.2"
+  },
+  "datasets": {
+    "tech_workforce_n": 150000,
+    "hackerearth_n": 22750,
+    "librarian_cbi_n": 1598,
+    "longitudinal_forecast_n": 11764
+  },
+  "split_strategy": "80/20 train/test, 80/20 train/validation, grouped employee split for longitudinal",
+  "selected_regression_model": "hist_gradient_boosting",
+  "selected_classification_model": "hist_gradient_boosting",
+  "operational_risk_threshold_score": 3.7,
+  "validation_optimal_probability_threshold": 0.35
+}

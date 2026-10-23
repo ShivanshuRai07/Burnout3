@@ -1,0 +1,72 @@
+{
+  "total_records": 11764,
+  "train_records": 9492,
+  "test_records": 2272,
+  "unique_employees": 2065,
+  "train_employees": 1652,
+  "test_employees": 413,
+  "regression": {
+    "persistence_baseline": {
+      "mae": 8.7615,
+      "rmse": 11.2149,
+      "r2": 0.5735
+    },
+    "mean_baseline": {
+      "mae": 13.8457,
+      "rmse": 17.2166,
+      "r2": -0.0051
+    },
+    "ridge": {
+      "mae": 8.0491,
+      "rmse": 10.1883,
+      "r2": 0.648
+    },
+    "random_forest": {
+      "mae": 8.2771,
+      "rmse": 10.4444,
+      "r2": 0.6301
+    },
+    "hist_gradient_boosting": {
+      "mae": 8.2566,
+      "rmse": 10.4128,
+      "r2": 0.6323
+    }
+  },
+  "classification": {
+    "persistence_baseline": {
+      "roc_auc": 0.9003,
+      "pr_auc": 0.6457,
+      "f1": 0.604,
+      "precision": 0.6333,
+      "recall": 0.5773
+    },
+    "majority_baseline": {
+      "roc_auc": 0.5,
+      "pr_auc": 0.1593,
+      "f1": 0.0,
+      "precision": 0.0,
+      "recall": 0.0
+    },
+    "logistic_regression": {
+      "roc_auc": 0.909,
+      "pr_auc": 0.6851,
+      "f1": 0.5677,
+      "precision": 0.6932,
+      "recall": 0.4807
+    },
+    "random_forest": {
+      "roc_auc": 0.9,
+      "pr_auc": 0.658,
+      "f1": 0.5204,
+      "precision": 0.7241,
+      "recall": 0.4061
+    },
+    "hist_gradient_boosting": {
+      "roc_auc": 0.8984,
+      "pr_auc": 0.6558,
+      "f1": 0.5638,
+      "precision": 0.6557,
+      "recall": 0.4945
+    }
+  }
+}

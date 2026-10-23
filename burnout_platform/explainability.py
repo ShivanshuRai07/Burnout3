@@ -1,15 +1,22 @@
 """Explainability module for the Burnout Platform.
 
-Computes SHAP explainability values and creates visualizations.
+Computes explainability values and creates visualizations.
 """
 from __future__ import annotations
 from pathlib import Path
 import pandas as pd
 import numpy as np
-import shap
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+
+try:
+    import shap
+    HAS_SHAP = True
+except ImportError:
+    HAS_SHAP = False
+    shap = None
+
 
 def generate_shap_explanations(
     model, 
@@ -17,13 +24,14 @@ def generate_shap_explanations(
     feature_names: np.ndarray, 
     output_dir: Path
 ) -> None:
-    # Use TreeExplainer for XGBoost or Forest models
-    # Fallback to KernelExplainer/LinearExplainer if TreeExplainer fails
+    if not HAS_SHAP or shap is None:
+        print("Note: SHAP is not installed in the current environment; skipping SHAP plot generation.")
+        return
+
     try:
         explainer = shap.TreeExplainer(model)
         shap_values = explainer.shap_values(X_test_transformed)
     except Exception:
-        # Fallback to sampling
         sample_n = min(100, len(X_test_transformed))
         explainer = shap.KernelExplainer(model.predict, shap.sample(X_test_transformed, sample_n))
         shap_values = explainer.shap_values(X_test_transformed[:sample_n])

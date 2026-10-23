@@ -1,166 +1,110 @@
-"""Train reproducible burnout-score and elevated-risk models.
+"""Retrain the 0-10 snapshot models from data in this repo, then run the self-report ablation.
 
-Run with:
-  python train.py --data "C:\\path\\tech_mental_health_burnout.csv" --output artifacts
+  python train.py                         # retrain into artifacts/ and write reports
+  python train.py --artifacts out/ --skip-models   # ablation only
+
+The snapshot models are trained by evaluate_models.py on the tech workforce subset of
+artifacts/master_workforce_dataset.pkl.gz. The ablation answers: how much of the accuracy comes from
+self-reported stress and wellbeing, which are measured at the same time as the burnout score?
 """
 from __future__ import annotations
 
 import argparse
-import json
-import os
 from pathlib import Path
 
-import joblib
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
-import shap
-from sklearn.calibration import CalibratedClassifierCV
 from sklearn.compose import ColumnTransformer
-from sklearn.ensemble import HistGradientBoostingRegressor, RandomForestRegressor
+from sklearn.ensemble import HistGradientBoostingClassifier, HistGradientBoostingRegressor
 from sklearn.impute import SimpleImputer
-from sklearn.linear_model import Ridge
-from sklearn.metrics import (average_precision_score, f1_score, mean_absolute_error,
-                             mean_squared_error, r2_score, roc_auc_score)
+from sklearn.metrics import mean_absolute_error, r2_score, roc_auc_score
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
-from xgboost import XGBClassifier, XGBRegressor
 
-RANDOM_STATE = 42
-TARGET = "burnout_score"
-RISK_QUANTILE = 0.90
-# Excluded from default deployment features: personal demographics and direct health/treatment signals.
-SENSITIVE_OR_NON_ACTIONABLE = {
-    "age", "gender", "has_therapy", "seeks_professional_help", "anxiety_score", "depression_score",
+from burnout_platform.features import engineer_features
+from evaluate_models import CATEGORICAL_FEATURES, NUMERIC_FEATURES, RANDOM_STATE, run_all_evaluations
+
+MASTER = Path("artifacts/master_workforce_dataset.pkl.gz")
+SOURCE = "tech_mental_health_burnout"
+SELF_REPORTED_WELLBEING = ["stress_level", "work_life_balance", "job_satisfaction", "sleep_hours",
+                           "social_support_score", "physical_activity_days", "caffeine_intake",
+                           "screen_time_hours"]
+FEATURE_SETS = {
+    "all features": NUMERIC_FEATURES,
+    "without stress_level": [c for c in NUMERIC_FEATURES if c != "stress_level"],
+    "workplace only (no self-reported wellbeing)": [c for c in NUMERIC_FEATURES if c not in SELF_REPORTED_WELLBEING],
 }
 
 
-def validate_data(df: pd.DataFrame) -> None:
-    required = {TARGET, "burnout_level", "stress_level", "work_hours_per_week"}
-    missing = required - set(df.columns)
-    if missing:
-        raise ValueError(f"Required columns absent: {sorted(missing)}")
-    if df.empty or df[TARGET].isna().any():
-        raise ValueError("Dataset is empty or has missing burnout_score values.")
-    if not df[TARGET].between(0, 10).all():
-        raise ValueError("burnout_score is outside the expected 0–10 range.")
-    if df.duplicated().any():
-        raise ValueError("Exact duplicate rows found; resolve source quality before training.")
+def self_report_ablation(out_dir: Path) -> pd.DataFrame:
+    df = pd.read_pickle(MASTER)
+    df = engineer_features(df[df["source_dataset"] == SOURCE])
+    y = df["burnout_score"]
+    train_idx, test_idx = train_test_split(df.index, test_size=0.2, random_state=RANDOM_STATE)
+    threshold = y.loc[train_idx].quantile(0.90)
+    rows = []
+    for name, numeric in FEATURE_SETS.items():
+        cols = numeric + CATEGORICAL_FEATURES
+        pre = ColumnTransformer([
+            ("num", Pipeline([("impute", SimpleImputer(strategy="median")), ("scale", StandardScaler())]), numeric),
+            ("cat", OneHotEncoder(handle_unknown="ignore"), CATEGORICAL_FEATURES),
+        ])
+        reg = Pipeline([("pre", pre), ("m", HistGradientBoostingRegressor(random_state=RANDOM_STATE))])
+        reg.fit(df.loc[train_idx, cols], y.loc[train_idx])
+        pred = reg.predict(df.loc[test_idx, cols])
+        clf = Pipeline([("pre", pre), ("m", HistGradientBoostingClassifier(random_state=RANDOM_STATE))])
+        clf.fit(df.loc[train_idx, cols], y.loc[train_idx] >= threshold)
+        prob = clf.predict_proba(df.loc[test_idx, cols])[:, 1]
+        rows.append({"feature_set": name, "n_numeric_features": len(numeric),
+                     "test_r2": round(r2_score(y.loc[test_idx], pred), 4),
+                     "test_mae": round(mean_absolute_error(y.loc[test_idx], pred), 4),
+                     "test_roc_auc_elevated": round(roc_auc_score(y.loc[test_idx] >= threshold, prob), 4)})
+        print(rows[-1])
+    table = pd.DataFrame(rows)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    table.to_csv(out_dir / "self_report_ablation.csv", index=False)
+    md = ["| " + " | ".join(table.columns) + " |", "|" + " --- |" * len(table.columns)]
+    md += ["| " + " | ".join(str(v) for v in r) + " |" for r in table.itertuples(index=False)]
+    (out_dir / "self_report_ablation.md").write_text("\n".join(md) + "\n", encoding="utf-8")
+    return table
 
 
-def make_preprocessor(X: pd.DataFrame) -> tuple[ColumnTransformer, list[str], list[str]]:
-    numeric = X.select_dtypes(include=np.number).columns.tolist()
-    categorical = X.select_dtypes(exclude=np.number).columns.tolist()
-    numeric_pipe = Pipeline([("impute", SimpleImputer(strategy="median")), ("scale", StandardScaler())])
-    categorical_pipe = Pipeline([
-        ("impute", SimpleImputer(strategy="most_frequent")),
-                        ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False, max_categories=20)),
-    ])
-    return ColumnTransformer([("numeric", numeric_pipe, numeric), ("categorical", categorical_pipe, categorical)], remainder="drop"), numeric, categorical
+def export_feature_importance(artifacts: Path, n_sample: int = 5000) -> pd.DataFrame:
+    """Permutation importance of the live score model on held-out rows: mean drop in test R²."""
+    import joblib
+    from sklearn.inspection import permutation_importance
+
+    df = pd.read_pickle(MASTER)
+    df = engineer_features(df[df["source_dataset"] == SOURCE])
+    cols = NUMERIC_FEATURES + CATEGORICAL_FEATURES
+    _, x_test, _, y_test = train_test_split(df[cols], df["burnout_score"], test_size=0.2, random_state=RANDOM_STATE)
+    x_test, y_test = x_test.iloc[:n_sample], y_test.iloc[:n_sample]
+    model = joblib.load(artifacts / "burnout_score_model.joblib")
+    res = permutation_importance(model, x_test, y_test, scoring="r2", n_repeats=5, random_state=RANDOM_STATE)
+    table = (pd.DataFrame({"feature": cols, "importance": res.importances_mean.round(4),
+                           "importance_sd": res.importances_std.round(4)})
+             .sort_values("importance", ascending=False))
+    table.to_csv(artifacts / "feature_importance.csv", index=False)
+    return table
 
 
-def regression_metrics(y_true: pd.Series, pred: np.ndarray) -> dict[str, float]:
-    return {"mae": round(float(mean_absolute_error(y_true, pred)), 4),
-            "rmse": round(float(mean_squared_error(y_true, pred) ** 0.5), 4),
-            "r2": round(float(r2_score(y_true, pred)), 4)}
-
-
-def classification_metrics(y_true: pd.Series, prob: np.ndarray) -> dict[str, float]:
-    label = (prob >= 0.5).astype(int)
-    return {"roc_auc": round(float(roc_auc_score(y_true, prob)), 4),
-            "pr_auc": round(float(average_precision_score(y_true, prob)), 4),
-            "f1_at_0_5": round(float(f1_score(y_true, label, zero_division=0)), 4),
-            "positive_rate": round(float(y_true.mean()), 4)}
-
-
-def save_plots(y_test: pd.Series, pred: np.ndarray, transformed_names: np.ndarray, model, X_test_t: np.ndarray, output: Path) -> None:
-    plt.figure(figsize=(6, 6))
-    plt.scatter(y_test, pred, s=5, alpha=0.15)
-    plt.plot([0, 10], [0, 10], "r--", linewidth=1)
-    plt.xlabel("Observed burnout score")
-    plt.ylabel("Predicted burnout score")
-    plt.title("Held-out predictions")
-    plt.tight_layout()
-    plt.savefig(output / "prediction_scatter.png", dpi=180)
-    plt.close()
-
-    sample_n = min(600, len(X_test_t))
-    sample = X_test_t[:sample_n]
-    explainer = shap.TreeExplainer(model)
-    values = explainer.shap_values(sample)
-    shap.summary_plot(values, sample, feature_names=transformed_names, show=False, max_display=15)
-    plt.tight_layout()
-    plt.savefig(output / "shap_summary.png", dpi=180, bbox_inches="tight")
-    plt.close()
-
-
-def main(data_path: str, output_dir: str) -> None:
-    output = Path(output_dir)
-    output.mkdir(parents=True, exist_ok=True)
-    df = pd.read_csv(data_path)
-    # Drop columns that are not available in the provided dataset
-    df = df.drop(columns=[col for col in ['wellness_score', 'support_index', 'workload_index', 'meeting_load'] if col in df.columns])
-    validate_data(df)
-
-    # Regression estimates continuous burnout.  The provided categorical level is excluded to prevent target leakage.
-    feature_columns = sorted(set(df.columns) - {TARGET, "burnout_level"} - SENSITIVE_OR_NON_ACTIONABLE)
-    X, y = df[feature_columns], df[TARGET]
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=RANDOM_STATE)
-    preprocessor, _, _ = make_preprocessor(X_train)
-
-    models = {
-        "ridge": Ridge(alpha=5.0),
-        "random_forest": RandomForestRegressor(n_estimators=160, max_depth=16, min_samples_leaf=3, n_jobs=-1, random_state=RANDOM_STATE),
-        "hist_gradient_boosting": HistGradientBoostingRegressor(max_iter=250, learning_rate=0.07, max_leaf_nodes=31, l2_regularization=1.0, random_state=RANDOM_STATE),
-        "xgboost": XGBRegressor(n_estimators=500, max_depth=7, learning_rate=0.05, subsample=0.85, colsample_bytree=0.9, objective="reg:squarederror", n_jobs=-1, random_state=RANDOM_STATE),
-    }
-    comparison, fitted = {}, {}
-    for name, estimator in models.items():
-        pipe = Pipeline([("preprocessor", preprocessor), ("model", estimator)])
-        pipe.fit(X_train, y_train)
-        comparison[name] = regression_metrics(y_test, pipe.predict(X_test))
-        fitted[name] = pipe
-    best_name = min(comparison, key=lambda n: comparison[n]["rmse"])
-    best_regressor = fitted[best_name]
-
-    # Elevated risk is a transparent source-specific definition, not a clinical diagnosis.
-    threshold = float(y_train.quantile(RISK_QUANTILE))
-    risk_train, risk_test = (y_train >= threshold).astype(int), (y_test >= threshold).astype(int)
-    risk_preprocessor, _, _ = make_preprocessor(X_train)
-    risk_base = XGBClassifier(n_estimators=350, max_depth=6, learning_rate=0.05, subsample=0.85,
-                              colsample_bytree=0.9, eval_metric="logloss", n_jobs=-1,
-                              scale_pos_weight=float((risk_train == 0).sum() / max((risk_train == 1).sum(), 1)),
-                              random_state=RANDOM_STATE)
-    risk_pipeline = Pipeline([("preprocessor", risk_preprocessor), ("model", risk_base)])
-    calibrated_risk = CalibratedClassifierCV(risk_pipeline, method="sigmoid", cv=3)
-    calibrated_risk.fit(X_train, risk_train)
-    risk_prob = calibrated_risk.predict_proba(X_test)[:, 1]
-
-    # Export transparent transformed-feature importance and SHAP for the selected tree regressor.
-    chosen_xgb = fitted["xgboost"]
-    X_test_t = chosen_xgb.named_steps["preprocessor"].transform(X_test)
-    names = chosen_xgb.named_steps["preprocessor"].get_feature_names_out()
-    importance = pd.DataFrame({"feature": names, "gain_importance": chosen_xgb.named_steps["model"].feature_importances_}).sort_values("gain_importance", ascending=False)
-    importance.to_csv(output / "feature_importance.csv", index=False)
-    save_plots(y_test, best_regressor.predict(X_test), names, chosen_xgb.named_steps["model"], X_test_t, output)
-
-    metrics = {"dataset": {"rows": int(len(df)), "features_used": feature_columns, "excluded_sensitive_or_non_actionable": sorted(SENSITIVE_OR_NON_ACTIONABLE), "test_rows": int(len(X_test))},
-               "regression_target": {"name": TARGET, "range": [0, 10], "models": comparison, "recommended_model": best_name},
-               "risk_model": {"definition": f"burnout_score >= training {int(RISK_QUANTILE * 100)}th percentile", "threshold": round(threshold, 4), "metrics": classification_metrics(risk_test, risk_prob)},
-               "limitations": ["External synthetic/proxy data; validate on consented company data before deployment.", "Risk band is statistical, not clinical; do not use for adverse employment decisions.", "No time field: this is a snapshot model, not a longitudinal forecast."]}
-    (output / "metrics.json").write_text(json.dumps(metrics, indent=2), encoding="utf-8")
-    joblib.dump(best_regressor, output / "burnout_score_model.joblib")
-    joblib.dump(calibrated_risk, output / "elevated_risk_model.joblib")
-    print(json.dumps(metrics, indent=2))
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--artifacts", default="artifacts")
+    ap.add_argument("--reports", default="reports")
+    ap.add_argument("--skip-models", action="store_true", help="only run the ablation")
+    a = ap.parse_args()
+    if not a.skip_models:
+        run_all_evaluations(
+            master_dataset_path=MASTER,
+            forecast_dataset_path=Path("Datasets/burnoutiq_dataset/data/forecast_t_to_t1.csv"),
+            cross_sectional_path=Path("Datasets/burnoutiq_dataset/data/A_cross_sectional.csv"),
+            artifacts_dir=Path(a.artifacts),
+            reports_dir=Path(a.reports) / "model_evaluations",
+        )
+        print(export_feature_importance(Path(a.artifacts)).head(8).to_string(index=False))
+    self_report_ablation(Path(a.reports) / "research" / "tables")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--data", required=True)
-    parser.add_argument("--output", default="artifacts")
-    args = parser.parse_args()
-    os.environ.setdefault("MPLCONFIGDIR", str(Path(args.output).resolve() / ".mpl"))
-    main(args.data, args.output)
+    main()
