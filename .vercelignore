@@ -6,6 +6,7 @@ venv/
 env/
 .env
 .DS_Store
+*.log
 .idea/
 .vscode/
 *.ipynb

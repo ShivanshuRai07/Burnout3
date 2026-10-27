@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import gzip
 import io
 import json
 import re
@@ -146,6 +147,17 @@ def _parse_multipart(data: bytes, content_type: str):
         name_m = re.search(r'name="([^"]*)"', header_text, re.IGNORECASE)
         file_m = re.search(r'filename="([^"]*)"', header_text, re.IGNORECASE)
         yield (name_m.group(1) if name_m else ''), (file_m.group(1) if file_m else ''), body
+
+
+def _uploaded_csv_bytes(payload: bytes, max_bytes: int = 50 * 1024 * 1024) -> bytes:
+    """Return an uncompressed CSV upload, accepting browser gzip uploads too."""
+    try:
+        payload = gzip.decompress(payload) if payload.startswith(b"\x1f\x8b") else payload
+    except OSError as exc:
+        raise ValueError(f"Could not unpack the uploaded gzip CSV: {exc}") from exc
+    if len(payload) > max_bytes:
+        raise ValueError("The expanded CSV is larger than the 50 MB analysis limit.")
+    return payload
 
 
 def _summarize_groups(aggregate: dict, limit: int = 20) -> list:
@@ -428,6 +440,30 @@ class DashboardState:
                     role_drivers[role_str] = [{"name": "Balanced Profile", "delta": "Low friction"}]
 
         return interventions, role_drivers
+
+    def simulate_uploaded_intervention(self, intervention_id: str) -> dict:
+        """Re-run one named workload scenario against the currently uploaded rows.
+
+        This intentionally recalculates from the active upload instead of merely
+        returning the previously rendered card, so the UI's Run simulation action
+        has a real model-backed operation behind it.
+        """
+        if self.uploaded_raw_df is None or self.uploaded_raw_df.empty:
+            return {"ok": False, "error": "Upload a workforce CSV before running a scenario."}
+        interventions, _ = self.compute_interventions_and_drivers(self.uploaded_raw_df, len(self.uploaded_raw_df))
+        scenario = next((item for item in interventions if item.get("id") == intervention_id), None)
+        if scenario is None:
+            return {"ok": False, "error": "That intervention scenario is unavailable for this upload."}
+        baseline_score = round(float(scenario["sim_score"]) + float(scenario["score_drop"]), 2)
+        baseline_elevated_rate = round(float(scenario["sim_elev_rate"]) + float(scenario["rate_drop"]), 1)
+        return {
+            "ok": True,
+            "scenario": scenario,
+            "baseline_score": baseline_score,
+            "baseline_elevated_rate": baseline_elevated_rate,
+            "simulated_at": time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime()),
+            "note": "Scenario estimates apply the selected workload change to the uploaded rows and rerun the score model. They are planning estimates, not guaranteed outcomes.",
+        }
 
     # ─── ORG SUMMARY ─────────────────────────────────────────────────────────
     def summary(self) -> dict:
@@ -944,6 +980,9 @@ class DashboardState:
 
     # ─── CSV UPLOAD ANALYSIS ─────────────────────────────────────────────────
     def analyse_upload(self, file_obj, filename: str) -> dict:
+        # The browser compresses uploads to stay below hosting request limits.
+        # Keep validation tied to the original file type, not its transport suffix.
+        filename = filename.removesuffix(".gz")
         if not filename.lower().endswith(".csv"):
             raise ValueError("Only CSV files are accepted.")
         file_obj.seek(0, 2); size = file_obj.tell(); file_obj.seek(0)
@@ -952,9 +991,30 @@ class DashboardState:
 
         defaults = self.default_features()
         numeric  = [x for x in FEATURES if x not in {"company_size", "job_role", "work_mode"}]
-        rows = 0; score_total = 0.0; prob_total = 0.0
+        # A longitudinal monthly file contains one row per employee *per month*.
+        # The cross-sectional risk workspace must analyse one current row per
+        # employee, otherwise 2,000 employees over ten months look like 20,000
+        # employees. Forecasting still receives the unmodified full history via
+        # /api/loop/upload.
+        file_obj.seek(0)
+        header = pd.read_csv(file_obj, nrows=0)
+        normalized_header = {str(column).strip().lower().replace(" ", "_") for column in header.columns}
+        period_column = next((column for column in header.columns if str(column).strip().lower().replace(" ", "_") == "period"), None)
+        is_longitudinal_input = {"employee_id", "period", *[f"cbi_w{i}" for i in range(1, 8)]}.issubset(normalized_header)
+        analysis_period = None
+        if is_longitudinal_input:
+            file_obj.seek(0)
+            periods: list[str] = []
+            for period_chunk in pd.read_csv(file_obj, usecols=[period_column], chunksize=100_000):
+                periods.extend(period_chunk[period_column].dropna().astype(str).str.strip().tolist())
+            if not periods:
+                raise ValueError("Longitudinal upload has no valid period values.")
+            analysis_period = max(periods)
+        file_obj.seek(0)
+
+        rows = 0; source_rows = 0; score_total = 0.0; prob_total = 0.0
         bands_total = {"Low": 0, "Moderate": 0, "Elevated": 0}
-        role_agg = {}; loc_agg = {}; gender_agg = {}; mode_agg = {}; state_agg = {}
+        role_agg = {}; loc_agg = {}; gender_agg = {}; mode_agg = {}; state_agg = {}; team_agg = {}; dept_agg = {}
         dur_agg = {lbl: {"score_sum": 0.0, "count": 0, "elevated": 0} for lbl in DURATION_LABELS}
         present = None; loc_field = gender_field = emp_id_field = state_field = None
 
@@ -962,6 +1022,7 @@ class DashboardState:
         emp_chunks: list[pd.DataFrame] = []
         raw_chunks: list[pd.DataFrame] = []
         pii_stripped_total: set[str] = set()
+        analysed_employee_ids: set[str] = set()
 
         for chunk in pd.read_csv(file_obj, chunksize=100_000):
             chunk.columns = [str(c).strip() for c in chunk.columns]
@@ -1015,8 +1076,15 @@ class DashboardState:
                 gender_field = next((f for f in ["gender","sex"] if f in present), None)
                 emp_id_field = next((f for f in ["employeeid","employee_id","emp_id","empid"] if f in present), None)
 
+            source_rows += len(cl)
+            if source_rows > 1_000_000: raise ValueError("File exceeds 1,000,000 rows.")
+            if is_longitudinal_input:
+                cl = cl.loc[cl["period"].astype(str).str.strip() == analysis_period].copy()
+                if cl.empty:
+                    continue
             rows += len(cl)
-            if rows > 1_000_000: raise ValueError("File exceeds 1,000,000 rows.")
+            if emp_id_field and emp_id_field in cl.columns:
+                analysed_employee_ids.update(cl[emp_id_field].dropna().astype(str).tolist())
 
             # Defaults from master dataset
             all_def = {col: (self.df[col].median() if self.df[col].dtype.kind in "bifc"
@@ -1052,6 +1120,13 @@ class DashboardState:
             if loc_field and loc_field in cl.columns: _agg_chunk(cl[loc_field].fillna("Unknown"), score, elevated, loc_agg, band)
             if gender_field and gender_field in cl.columns: _agg_chunk(cl[gender_field].fillna("Unknown"), score, elevated, gender_agg, band)
             if "work_mode" in cl.columns: _agg_chunk(cl["work_mode"].fillna("Unknown"), score, elevated, mode_agg, band)
+            department_col = next((c for c in ("department", "department_name", "division") if c in cl.columns), None)
+            team_col = next((c for c in ("team", "team_id", "team_name") if c in cl.columns), None)
+            if department_col:
+                _agg_chunk(cl[department_col].fillna("Unassigned"), score, elevated, dept_agg, band)
+            if team_col:
+                prefix = cl[department_col].fillna("Unassigned").astype(str) + " · " if department_col else ""
+                _agg_chunk(prefix + cl[team_col].fillna("Unassigned").astype(str), score, elevated, team_agg, band)
 
             # State aggregation
             state_series: pd.Series | None = None
@@ -1097,7 +1172,7 @@ class DashboardState:
             emp_chunks.append(emp_chunk_df)
             raw_chunks.append(cl)
 
-        if not rows: raise ValueError("Uploaded file has no employee rows.")
+        if not rows: raise ValueError("Uploaded file has no employee rows for the latest reporting period.")
         self.employee_df = pd.concat(emp_chunks, ignore_index=True) if emp_chunks else None
         self.uploaded_raw_df = pd.concat(raw_chunks, ignore_index=True) if raw_chunks else None
         scatter_source = self.employee_df.dropna(subset=["hours", "score"]) if self.employee_df is not None else pd.DataFrame()
@@ -1128,6 +1203,9 @@ class DashboardState:
             "name": f"Uploaded File: {filename}",
             "source_file": filename,
             "record_count": rows,
+            "source_record_count": source_rows,
+            "unique_employee_count": len(analysed_employee_ids) or rows,
+            "analysis_period": analysis_period,
             "is_upload": True,
             "last_refresh": time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime()),
             "has_longitudinal": False,
@@ -1151,11 +1229,16 @@ class DashboardState:
             "has_emp_id": emp_id_field is not None,
             "has_employee_table": self.employee_df is not None and not self.employee_df.empty,
             "employee_table_count": len(self.employee_df) if self.employee_df is not None else 0,
+            "source_record_count": source_rows,
+            "unique_employee_count": len(analysed_employee_ids) or rows,
+            "analysis_period": analysis_period,
             "mean_burnout_score": round(score_total / rows, 2),
             "elevated_review_rate": round(bands_total["Elevated"] / rows * 100, 1),
             "mean_elevated_probability": round(prob_total / rows * 100, 1),
             "risk_distribution": bands_total,
             "role_analysis": role_summary,
+            "department_analysis": _summarize_groups(dept_agg),
+            "team_analysis": _summarize_groups(team_agg),
             "interventions": interventions,
             "role_drivers": role_drivers,
             "location_analysis": _summarize_groups(loc_agg),
@@ -1314,7 +1397,7 @@ def make_handler(state: DashboardState, html: bytes):
             valid_paths = {
                 "/api/predict", "/api/analyse-upload", "/api/reset-dataset",
                 "/api/loop/upload", "/api/loop/reset", "/api/loop/add-month", "/api/loop/demo-start", "/api/loop/demo-next", "/api/loop/support", "/api/loop/support/status", "/api/loop/try-survey",
-                "/api/interventions/update-status", "/api/interventions/record", "/api/interventions/record-followup"
+                "/api/interventions/update-status", "/api/interventions/record", "/api/interventions/record-followup", "/api/simulate-intervention"
             }
             if self.path not in valid_paths:
                 return self.send_error(HTTPStatus.NOT_FOUND)
@@ -1338,6 +1421,14 @@ def make_handler(state: DashboardState, html: bytes):
                     return self.send_json({"ok": False, "error": "Body must be JSON."}, 400)
                 res = try_survey_action(tracker, data)
                 return self.send_json(res, 200 if res["ok"] else 400)
+            if self.path == "/api/simulate-intervention":
+                body = self.rfile.read(int(self.headers.get("Content-Length", "0") or 0))
+                try:
+                    data = json.loads(body or b"{}") or {}
+                except ValueError:
+                    return self.send_json({"ok": False, "error": "Body must be JSON."}, 400)
+                res = state.simulate_uploaded_intervention(str(data.get("intervention_id", "")))
+                return self.send_json(res, 200 if res["ok"] else 400)
             if self.path in ("/api/loop/support", "/api/loop/support/status"):
                 body = self.rfile.read(int(self.headers.get("Content-Length", "0") or 0))
                 try:
@@ -1348,14 +1439,14 @@ def make_handler(state: DashboardState, html: bytes):
                 return self.send_json(res, 200 if res["ok"] else 400)
             if self.path == "/api/loop/add-month":
                 raw = self.rfile.read(int(self.headers.get("Content-Length", "0")))
-                files = {name: body for name, _, body in _parse_multipart(raw, self.headers.get("Content-Type", ""))
+                files = {name: _uploaded_csv_bytes(body) for name, _, body in _parse_multipart(raw, self.headers.get("Content-Type", ""))
                          if name in ("employees", "monthly", "interventions")}
                 res = add_month_to_tracker(tracker, files)
                 return self.send_json(res, 200 if res["ok"] else 400)
             try:
                 if self.path == "/api/loop/upload":
                     raw = self.rfile.read(int(self.headers.get("Content-Length", "0")))
-                    files = {name: body for name, _, body in _parse_multipart(raw, self.headers.get("Content-Type", ""))
+                    files = {name: _uploaded_csv_bytes(body) for name, _, body in _parse_multipart(raw, self.headers.get("Content-Type", ""))
                              if name in ("employees", "monthly", "interventions")}
                     res = upload_to_tracker(state.longitudinal_tracker, files)
                     return self.send_json(res, 200 if res["ok"] else 400)
@@ -1366,7 +1457,7 @@ def make_handler(state: DashboardState, html: bytes):
                     files: dict[str, tuple[bytes, str]] = {}
                     for name, filename, body in _parse_multipart(raw, ct):
                         if name in {"file", "monthly", "employees"}:
-                            files[name] = (body, filename or f"{name}.csv")
+                            files[name] = (_uploaded_csv_bytes(body), (filename or f"{name}.csv").removesuffix(".gz"))
                     monthly_bytes, monthly_name = files.get("monthly", files.get("file", (None, "monthly.csv")))
                     if monthly_bytes is None:
                         raise ValueError("A monthly.csv file is required for model analysis.")

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import io
+import gzip
 import json
 import os
 import re
@@ -10,6 +11,7 @@ from pathlib import Path
 
 # Make burnout_platform importable from repo root
 ROOT = Path(__file__).parent.parent
+FRONTEND = ROOT / "frontend"
 sys.path.insert(0, str(ROOT))
 
 from flask import Flask, jsonify, request, send_file, send_from_directory
@@ -63,6 +65,21 @@ CORE_UPLOAD_FIELDS = {
     "experience_years", "job_role", "work_mode"
 }
 OPTIONAL_WORKPLACE_FIELDS = set(FEATURES) - CORE_UPLOAD_FIELDS
+MIN_MODEL_INPUT_FIELDS = 5
+
+# Common source-schema names mapped to the model's documented feature schema.
+# Multipliers only normalize published 1–10 wellbeing scales to the 20–200
+# scale used when the production model was trained.
+UPLOAD_COLUMN_ALIASES: dict[str, tuple[str, float]] = {
+    "years_experience": ("experience_years", 1.0),
+    "sleep_hours_per_night": ("sleep_hours", 1.0),
+    "exercise_days_per_week": ("physical_activity_days", 1.0),
+    "stress_score": ("stress_level", 1.0),
+    "manager_support_score": ("manager_support", 20.0),
+    "work_life_balance_score": ("work_life_balance", 20.0),
+    "job_satisfaction_score": ("job_satisfaction", 20.0),
+    "overtime_hours_per_week": ("overtime_hours", 1.0),
+}
 
 DURATION_BINS   = [0, 35, 40, 50, 60, 999]
 DURATION_LABELS = ["Undertime (<35h)", "Standard (35–40h)", "Overtime (41–50h)", "Extended (51–60h)", "Extreme (>60h)"]
@@ -140,6 +157,18 @@ def _parse_multipart(data: bytes, content_type: str):
         name_m = re.search(r'name="([^"]*)"', header_text, re.IGNORECASE)
         file_m = re.search(r'filename="([^"]*)"', header_text, re.IGNORECASE)
         yield (name_m.group(1) if name_m else ''), (file_m.group(1) if file_m else ''), body
+
+
+def _uploaded_csv_bytes(file_storage, max_bytes: int = 50 * 1024 * 1024) -> bytes:
+    """Read a raw or gzip-compressed browser CSV upload safely."""
+    payload = file_storage.read()
+    try:
+        payload = gzip.decompress(payload) if payload.startswith(b"\x1f\x8b") else payload
+    except OSError as exc:
+        raise ValueError(f"Could not unpack the uploaded gzip CSV: {exc}") from exc
+    if len(payload) > max_bytes:
+        raise ValueError("The expanded CSV is larger than the 50 MB analysis limit.")
+    return payload
 
 
 def _summarize_groups(aggregate: dict, limit: int = 20) -> list:
@@ -418,6 +447,23 @@ class DashboardState:
                     role_drivers[role_str] = [{"name": "Balanced Profile", "delta": "Low friction"}]
 
         return interventions, role_drivers
+
+    def simulate_uploaded_intervention(self, intervention_id: str) -> dict:
+        """Re-run one named workload scenario against the currently uploaded rows."""
+        if self.uploaded_raw_df is None or self.uploaded_raw_df.empty:
+            return {"ok": False, "error": "Upload a workforce CSV before running a scenario."}
+        interventions, _ = self.compute_interventions_and_drivers(self.uploaded_raw_df, len(self.uploaded_raw_df))
+        scenario = next((item for item in interventions if item.get("id") == intervention_id), None)
+        if scenario is None:
+            return {"ok": False, "error": "That intervention scenario is unavailable for this upload."}
+        return {
+            "ok": True,
+            "scenario": scenario,
+            "baseline_score": round(float(scenario["sim_score"]) + float(scenario["score_drop"]), 2),
+            "baseline_elevated_rate": round(float(scenario["sim_elev_rate"]) + float(scenario["rate_drop"]), 1),
+            "simulated_at": time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime()),
+            "note": "Scenario estimates apply the selected workload change to the uploaded rows and rerun the score model. They are planning estimates, not guaranteed outcomes.",
+        }
 
     def summary(self) -> dict:
         if self._cached_summary is not None:
@@ -919,6 +965,7 @@ class DashboardState:
         }}
 
     def analyse_upload(self, file_obj, filename: str) -> dict:
+        filename = filename.removesuffix(".gz")
         if not filename.lower().endswith(".csv"):
             raise ValueError("Only CSV files are accepted.")
         file_obj.seek(0, 2); size = file_obj.tell(); file_obj.seek(0)
@@ -926,45 +973,83 @@ class DashboardState:
             raise ValueError("File exceeds 500 MB limit.")
         defaults = self.default_features()
         numeric  = [x for x in FEATURES if x not in {"company_size", "job_role", "work_mode"}]
-        rows = 0; score_total = 0.0; prob_total = 0.0
+        # A monthly history has many rows per employee. The snapshot analysis
+        # must use only the latest month so employee totals are not multiplied
+        # by the number of periods in the uploaded history.
+        file_obj.seek(0)
+        header = pd.read_csv(file_obj, nrows=0)
+        normalized_header = {str(column).strip().lower().replace(" ", "_") for column in header.columns}
+        period_column = next((column for column in header.columns if str(column).strip().lower().replace(" ", "_") == "period"), None)
+        is_longitudinal_input = {"employee_id", "period", *[f"cbi_w{i}" for i in range(1, 8)]}.issubset(normalized_header)
+        analysis_period = None
+        if is_longitudinal_input:
+            file_obj.seek(0)
+            periods: list[str] = []
+            for period_chunk in pd.read_csv(file_obj, usecols=[period_column], chunksize=100_000):
+                periods.extend(period_chunk[period_column].dropna().astype(str).str.strip().tolist())
+            if not periods:
+                raise ValueError("Longitudinal upload has no valid period values.")
+            analysis_period = max(periods)
+        file_obj.seek(0)
+
+        rows = 0; source_rows = 0; score_total = 0.0; prob_total = 0.0
         bands_total = {"Low": 0, "Moderate": 0, "Elevated": 0}
         role_agg = {}; loc_agg = {}; gender_agg = {}; mode_agg = {}; state_agg = {}
         dur_agg = {lbl: {"score_sum": 0.0, "count": 0, "elevated": 0} for lbl in DURATION_LABELS}
-        present = None; loc_field = gender_field = emp_id_field = state_field = None
+        present = None; missing_model_fields: list[str] = []; applied_mappings: list[str] = []
+        loc_field = gender_field = emp_id_field = state_field = None
         self.uploaded_employees = {}
         emp_chunks: list[pd.DataFrame] = []
         raw_chunks: list[pd.DataFrame] = []
         pii_stripped_total: set[str] = set()
+        analysed_employee_ids: set[str] = set()
         for chunk in pd.read_csv(file_obj, chunksize=100_000):
             chunk.columns = [str(c).strip() for c in chunk.columns]
             col_map = {c: c.lower().replace(" ", "_") for c in chunk.columns}
             cl = chunk.rename(columns=col_map)
+            for source, (target, multiplier) in UPLOAD_COLUMN_ALIASES.items():
+                if source not in cl.columns or target in cl.columns:
+                    continue
+                values = pd.to_numeric(cl[source], errors="coerce") if multiplier != 1.0 else cl[source]
+                cl[target] = values * multiplier if multiplier != 1.0 else values
+                if source not in applied_mappings:
+                    suffix = f" × {multiplier:g}" if multiplier != 1.0 else ""
+                    applied_mappings.append(f"{source} → {target}{suffix}")
             cl, stripped_cols = strip_forbidden_pii(cl)
             if stripped_cols:
                 pii_stripped_total.update(stripped_cols)
             if present is None:
                 present = set(cl.columns)
-                miss = sorted(CORE_UPLOAD_FIELDS - present)
-                if miss: raise ValueError("Missing required fields: " + ", ".join(miss))
+                supplied_model_fields = sorted(present & set(FEATURES))
+                if len(supplied_model_fields) < MIN_MODEL_INPUT_FIELDS:
+                    raise ValueError(
+                        f"At least {MIN_MODEL_INPUT_FIELDS} recognised full-model fields are required for reliable analysis. "
+                        f"Found {len(supplied_model_fields)}: "
+                        + ", ".join(supplied_model_fields or ["none"])
+                    )
+                missing_model_fields = sorted(set(FEATURES) - present)
                 loc_field    = next((f for f in ["city","employee_location","location"] if f in present), None)
                 state_field  = next((f for f in ["state","province","region"] if f in present), None)
                 gender_field = next((f for f in ["gender","sex"] if f in present), None)
                 emp_id_field = next((f for f in ["employeeid","employee_id","emp_id","empid"] if f in present), None)
+            source_rows += len(cl)
+            if source_rows > 1_000_000: raise ValueError("File exceeds 1,000,000 rows.")
+            if is_longitudinal_input:
+                cl = cl.loc[cl["period"].astype(str).str.strip() == analysis_period].copy()
+                if cl.empty:
+                    continue
             rows += len(cl)
-            if rows > 1_000_000: raise ValueError("File exceeds 1,000,000 rows.")
-            all_def = {col: (self.df[col].median() if self.df[col].dtype.kind in "bifc"
-                             else (self.df[col].mode().iloc[0] if not self.df[col].mode().empty else ""))
-                       for col in self.df.columns}
+            if emp_id_field and emp_id_field in cl.columns:
+                analysed_employee_ids.update(cl[emp_id_field].dropna().astype(str).tolist())
             batch = pd.DataFrame(index=cl.index)
-            for col in self.df.columns:
-                lc = col.lower().replace(" ", "_")
-                batch[col] = cl[lc].values if lc in cl.columns else (cl[col].values if col in cl.columns else all_def[col])
+            for col in FEATURES:
+                batch[col] = cl[col].values if col in cl.columns else np.nan
             for col in numeric:
                 if col in batch.columns:
-                    batch[col] = pd.to_numeric(batch[col], errors="coerce").fillna(all_def.get(col, 0))
+                    batch[col] = pd.to_numeric(batch[col], errors="coerce")
             for col in {"company_size", "job_role", "work_mode"}:
                 if col in batch.columns:
-                    batch[col] = batch[col].fillna(all_def.get(col, "")).astype(str)
+                    batch[col] = batch[col].replace("", np.nan)
             try:
                 batch_eng = engineer_features(batch)
                 score = np.clip(self.score_model.predict(batch_eng), 0, 10)
@@ -1017,13 +1102,16 @@ class DashboardState:
             emp_chunks.append(emp_chunk_df)
             raw_chunks.append(cl)
 
-        if not rows: raise ValueError("Uploaded file has no employee rows.")
+        if not rows: raise ValueError("Uploaded file has no employee rows for the latest reporting period.")
         self.employee_df = pd.concat(emp_chunks, ignore_index=True) if emp_chunks else None
         self.uploaded_raw_df = pd.concat(raw_chunks, ignore_index=True) if raw_chunks else None
         self.active_dataset_info = {
             "name": f"Uploaded File: {filename}",
             "source_file": filename,
             "record_count": rows,
+            "source_record_count": source_rows,
+            "unique_employee_count": len(analysed_employee_ids) or rows,
+            "analysis_period": analysis_period,
             "is_upload": True,
             "last_refresh": time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime()),
             "has_longitudinal": False,
@@ -1039,6 +1127,9 @@ class DashboardState:
         return {
             "active_dataset": self.active_dataset_info,
             "detected_fields": sorted(present & set(FEATURES)),
+            "model_fields_not_supplied": missing_model_fields,
+            "applied_schema_mappings": applied_mappings,
+            "input_coverage_percent": round(100 * (len(set(FEATURES) & present) / len(FEATURES)), 1),
             "optional_fields_not_supplied": sorted(OPTIONAL_WORKPLACE_FIELDS - present),
             "has_gender": gender_field is not None,
             "has_location": loc_field is not None,
@@ -1046,6 +1137,9 @@ class DashboardState:
             "has_emp_id": emp_id_field is not None,
             "has_employee_table": self.employee_df is not None and not self.employee_df.empty,
             "employee_table_count": len(self.employee_df) if self.employee_df is not None else 0,
+            "source_record_count": source_rows,
+            "unique_employee_count": len(analysed_employee_ids) or rows,
+            "analysis_period": analysis_period,
             "mean_burnout_score": round(score_total / rows, 2),
             "elevated_review_rate": round(bands_total["Elevated"] / rows * 100, 1),
             "mean_elevated_probability": round(prob_total / rows * 100, 1),
@@ -1066,13 +1160,19 @@ class DashboardState:
             "responsible_use_advisory": (
                 "Workforce decision-support only. Results must not be used for punitive employment actions."
             ),
-            "notice": "The uploaded file is streamed in batches and is not retained by this service.",
+            "notice": (
+                "The uploaded file is streamed in batches and is not retained by this service. "
+                + ("Missing model inputs were handled by the model's fitted training imputer: " + ", ".join(missing_model_fields) + "."
+                   if missing_model_fields else "All model inputs were supplied.")
+            ),
         }
 
 
 # ─── Flask App ────────────────────────────────────────────────────────────────
 
-app = Flask(__name__, static_folder=str(ROOT), static_url_path="")
+# The Vercel function serves the same browser client as local ``frontend/serve.py``.
+# Keeping the assets inside Flask means the client and its ML-backed API share one origin.
+app = Flask(__name__, static_folder=str(FRONTEND), static_url_path="")
 
 
 @app.after_request
@@ -1088,7 +1188,7 @@ def add_cors(response):
 
 @app.route("/", methods=["GET"])
 def index():
-    return send_from_directory(str(ROOT), "dashboard.html", mimetype="text/html; charset=utf-8")
+    return send_from_directory(str(FRONTEND), "index.html", mimetype="text/html; charset=utf-8")
 
 
 @app.route("/api/summary", methods=["GET"])
@@ -1178,10 +1278,14 @@ def api_analyse_upload():
     if request.method == "OPTIONS":
         return "", 204
     try:
-        if "file" not in request.files:
+        # ``file`` is used by the older dashboard; ``monthly`` is sent by the
+        # current frontend.
+        f = request.files.get("file") or request.files.get("monthly")
+        if f is None:
             return jsonify({"error": "No CSV file received."}), 400
-        f = request.files["file"]
-        return jsonify(get_state().analyse_upload(f.stream, f.filename or "upload.csv"))
+        payload = _uploaded_csv_bytes(f)
+        filename = (f.filename or "upload.csv").removesuffix(".gz")
+        return jsonify(get_state().analyse_upload(io.BytesIO(payload), filename))
     except Exception as exc:
         return jsonify({"error": str(exc)}), 400
 
@@ -1201,6 +1305,15 @@ def api_health():
             "risk_model": s.risk_model is not None,
         }
     })
+
+
+@app.route("/api/simulate-intervention", methods=["POST", "OPTIONS"])
+def api_simulate_intervention():
+    if request.method == "OPTIONS":
+        return "", 204
+    payload = request.get_json(silent=True) or {}
+    result = get_state().simulate_uploaded_intervention(str(payload.get("intervention_id", "")))
+    return jsonify(result), (200 if result.get("ok") else 400)
 
 
 @app.route("/api/forecast", methods=["GET"])

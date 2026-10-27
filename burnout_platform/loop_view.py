@@ -1,6 +1,7 @@
 """Turn BurnoutLoop results into dashboard payloads. Every number shown comes from here; nothing is typed in."""
 from __future__ import annotations
 
+import gzip
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -39,6 +40,17 @@ STAGES = [
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 
 
+def _csv_bytes(payload: bytes, label: str) -> bytes:
+    """Accept raw or gzip-compressed CSV data, with a bounded expanded size."""
+    try:
+        raw = gzip.decompress(payload) if payload.startswith(b"\x1f\x8b") else payload
+    except OSError as exc:
+        raise ValueError(f"{label} could not be unpacked as a gzip CSV: {exc}") from exc
+    if len(raw) > MAX_UPLOAD_BYTES:
+        raise ValueError(f"{label} is larger than 50 MB after decompression.")
+    return raw
+
+
 def upload_to_tracker(tracker, files: Dict[str, bytes]) -> Dict[str, Any]:
     """Run the loop on uploaded CSV bytes (keys: employees, monthly, optional interventions).
 
@@ -53,7 +65,7 @@ def upload_to_tracker(tracker, files: Dict[str, bytes]) -> Dict[str, Any]:
     if not files.get("employees") or not files.get("monthly"):
         return {"ok": False, "error": "employees.csv and monthly.csv are required."}
     try:
-        frames = {k: pd.read_csv(io.BytesIO(v)) for k, v in files.items() if v}
+        frames = {k: pd.read_csv(io.BytesIO(_csv_bytes(v, k))) for k, v in files.items() if v}
     except Exception as exc:
         return {"ok": False, "error": f"Could not read a file as CSV: {exc}"}
     try:
@@ -74,7 +86,7 @@ def add_month_to_tracker(tracker, files: Dict[str, bytes]) -> Dict[str, Any]:
     if not files.get("monthly"):
         return {"ok": False, "error": "monthly.csv for the new month is required."}
     try:
-        frames = {k: pd.read_csv(io.BytesIO(v)) for k, v in files.items() if v}
+        frames = {k: pd.read_csv(io.BytesIO(_csv_bytes(v, k))) for k, v in files.items() if v}
         source = tracker.add_month(frames["monthly"], frames.get("interventions"), frames.get("employees"))
     except (InputError, ValueError) as exc:
         return {"ok": False, "error": str(exc)}

@@ -1,14 +1,12 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
-  "builds": [
-    {
-      "src": "api/index.py",
-      "use": "@vercel/python",
-      "config": {
-        "maxLambdaSize": "250mb"
-      }
+  "functions": {
+    "api/index.py": {
+      "includeFiles": "{artifacts/**,burnout_platform/**,burnoutiq/**,frontend/**,templates/**,Datasets/burnoutiq_dataset/data/**}",
+      "excludeFiles": "{tests/**,notebooks/**,docs/**,reports/**,data/**,*.ipynb}"
     }
-  ],
+  },
   "routes": [
     {
       "src": "/api/(.*)",

@@ -17,6 +17,8 @@ env/
 # Temporary artifacts
 artifacts_new/
 .vercel
+*.log
+*.err.log
 .env*
 
 # Data ignore rules (protect private/raw datasets and research records)

@@ -239,7 +239,7 @@
           <section class="enterprise-requirements">
             <h4>Data requirements</h4>
             <p>Files are processed locally for this session. Upload one workforce CSV, or add up to two related CSV files for richer breakouts.</p>
-            <p class="enterprise-requirements__label">Required for analysis</p>
+            <p class="enterprise-requirements__label">Provide at least 5 model fields for analysis</p>
             <div class="enterprise-chips"><code>work_hours_per_week</code><code>overtime_hours</code><code>meetings_per_day</code><code>job_role</code><code>work_mode</code></div>
             <p class="enterprise-requirements__label">Optional for additional breakdowns</p>
             <div class="enterprise-chips"><code>employee_id</code><code>city</code><code>state</code><code>stress_level</code><code>sleep_hours</code><code>manager_support</code></div>
@@ -493,8 +493,8 @@
 
           <!-- Chart 2: Burnout Score & Risk by Job Role -->
           <div class="res-chart-card" id="report-roles">
-            <h4 class="res-chart-title">Role-Based Risk Breakdown</h4>
-            <p class="res-chart-subtitle">Mean burnout score &amp; primary workload friction points by job title</p>
+            <h4 class="res-chart-title">Role review queue</h4>
+            <p class="res-chart-subtitle">Prioritised summary first, followed by the detailed role-level evidence table.</p>
             <div class="res-role-bars" id="res-role-bars"></div>
             <div class="res-role-review" id="res-role-review"></div>
           </div>
@@ -599,15 +599,18 @@
         </div>
       </div>
       <div class="tile t-signin">
-        <h2 class="tile__title"><span>sign in</span>Choose how to look around</h2>
+        <h2 class="tile__title"><span>sign in</span>Access the workspace</h2>
         <div class="signin tile__body">
           <form class="signin__opt" id="signin-company" autocomplete="off">
             <p class="tile__label">Workforce analysis</p>
-            <p class="note">Enter your organisation name, then upload one workforce CSV or up to three related CSV files. Files stay in this browser session.</p>
-            <label class="signin__field">Company name<input name="company" placeholder="e.g. Acme Ltd" required maxlength="60"></label>
-            <button type="submit" class="btn btn--ghost">Continue to file analysis</button>
+            <p class="note">Enter an ID and password to continue to the local file-analysis workspace.</p>
+            <label class="signin__field">User ID<input name="user_id" placeholder="e.g. analyst-01" required maxlength="60" autocomplete="username"></label>
+            <label class="signin__field">Password
+              <span class="signin__password"><input id="signin-password" name="password" type="password" placeholder="Enter password" required maxlength="128" autocomplete="current-password"><button type="button" class="signin__toggle" data-password-toggle aria-controls="signin-password" aria-label="Show password">Show</button></span>
+            </label>
+            <button type="submit" class="btn btn--ghost">Sign in</button>
           </form>
-          <p class="tile__fine">No password is required. You can upload your data after continuing.</p>
+          <p class="tile__fine">This is a local page-only login: credentials are not sent to or saved by the server.</p>
         </div>
       </div>
       <div class="tile t-loop">

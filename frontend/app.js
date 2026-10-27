@@ -56,6 +56,33 @@
   const post = (path, body) => api(path, body instanceof FormData ? { method: "POST", body }
     : { method: "POST", body: JSON.stringify(body || {}), headers: { "Content-Type": "application/json", Accept: "application/json" } });
 
+  // Vercel Functions cap request bodies at 4.5 MB. CSVs compress well, so pack
+  // them in the browser and unpack them in the API before validation/scoring.
+  const VERCEL_SAFE_UPLOAD_BYTES = 4 * 1024 * 1024;
+  async function gzipUpload(file) {
+    if (!("CompressionStream" in window)) return file;
+    const packed = await new Response(file.stream().pipeThrough(new CompressionStream("gzip"))).blob();
+    return new File([packed], `${file.name}.gz`, { type: "application/gzip" });
+  }
+  function uploadLimitMessage(bytes) {
+    return `The compressed upload is ${(bytes / 1024 / 1024).toFixed(1)} MB. Vercel accepts requests up to 4.5 MB; split the CSV or use a smaller export.`;
+  }
+  async function appendCompressed(form, field, file) {
+    const packed = await gzipUpload(file);
+    form.append(field, packed, packed.name);
+    return packed.size;
+  }
+  async function readUploadResponse(response) {
+    const text = await response.text();
+    try { return JSON.parse(text); }
+    catch (_) {
+      if (response.status === 413 || /request entity too large|payload too large/i.test(text)) {
+        throw new Error("Upload is too large for Vercel (maximum request size is 4.5 MB). Try a smaller CSV export.");
+      }
+      throw new Error(`Upload service returned ${response.status} instead of a valid response.`);
+    }
+  }
+
   // ---------- svg + date helpers ----------
   function svgSize(svg) {
     const r = svg.getBoundingClientRect();
@@ -1565,16 +1592,29 @@
     if (periods.size < 2) return { available: false, reason: "Forecast requires at least two monthly periods for the same workforce." };
 
     const form = new FormData();
-    form.append("employees", files.employees, files.employees.name);
-    form.append("monthly", files.monthly, files.monthly.name);
-    if (files.interventions) form.append("interventions", files.interventions, files.interventions.name);
+    let payloadBytes = await appendCompressed(form, "employees", files.employees);
+    payloadBytes += await appendCompressed(form, "monthly", files.monthly);
+    if (files.interventions) payloadBytes += await appendCompressed(form, "interventions", files.interventions);
+    if (payloadBytes > VERCEL_SAFE_UPLOAD_BYTES) return { available: false, reason: uploadLimitMessage(payloadBytes) };
     const upload = await fetch("/api/loop/upload", { method: "POST", body: form });
-    const uploadResult = await upload.json();
+    const uploadResult = await readUploadResponse(upload);
     if (!upload.ok || !uploadResult.ok) return { available: false, reason: uploadResult.error || "The longitudinal model could not use these files." };
     const [loopResponse, forecastResponse] = await Promise.all([fetch("/api/loop"), fetch("/api/forecast")]);
     const [loop, forecast] = await Promise.all([loopResponse.json(), forecastResponse.json()]);
     if (!forecast.available) return { available: false, reason: forecast.message || "A next-month forecast is not available for this history." };
-    return { available: true, loop, forecast, periods: [...periods].sort() };
+    // These are model forecasts made from the final observed month. Keep the
+    // detail queues separate from the cross-sectional upload analysis so a
+    // current score is never presented as a future prediction.
+    const period = loop.period || "";
+    const query = new URLSearchParams({ period, sort: "rise" });
+    const peopleQuery = new URLSearchParams({ period, sort: "rise", page: "0", page_size: "12" });
+    const [teamResult, peopleResult] = await Promise.allSettled([
+      fetch(`/api/loop/teams?${query}`).then((response) => response.ok ? response.json() : Promise.reject(new Error("Team forecast data unavailable"))),
+      fetch(`/api/loop/employees?${peopleQuery}`).then((response) => response.ok ? response.json() : Promise.reject(new Error("Employee forecast data unavailable"))),
+    ]);
+    const teams = teamResult.status === "fulfilled" && teamResult.value.available ? teamResult.value : null;
+    const employees = peopleResult.status === "fulfilled" && peopleResult.value.available ? peopleResult.value : null;
+    return { available: true, loop, forecast, teams, employees, periods: [...periods].sort() };
   }
 
   function wireCompanyAnalysis() {
@@ -1638,10 +1678,11 @@
         const fd = new FormData();
         // The trained score and risk models evaluate monthly telemetry, enriched
         // with stable employee attributes (such as role and work mode).
-        if (companyFiles.employees) fd.append('employees', companyFiles.employees, companyFiles.employees.name);
-        fd.append('monthly', companyFiles.monthly, companyFiles.monthly.name);
+        const packedMonthly = await gzipUpload(companyFiles.monthly);
+        if (packedMonthly.size > VERCEL_SAFE_UPLOAD_BYTES) throw new Error(uploadLimitMessage(packedMonthly.size));
+        fd.append('monthly', packedMonthly, packedMonthly.name);
         const res  = await fetch('/api/analyse-upload', { method: 'POST', body: fd });
-        const data = await res.json();
+        const data = await readUploadResponse(res);
         if (!res.ok || data.error) throw new Error(data.error || 'Upload analysis failed');
         try {
           data.longitudinal = await loadLongitudinalModels(companyFiles);
@@ -1720,8 +1761,9 @@
     const qualityFields = $("#res-data-quality-fields");
     if (qualityFields) {
       const found = data.detected_fields || [];
-      const defaults = data.optional_fields_not_supplied || [];
-      qualityFields.innerHTML = `<div><b>${f0(found.length)}</b><span>model fields detected</span></div><div><b>${f0(data.employee_table_count || 0)}</b><span>valid rows scored</span></div><div><b>${data.longitudinal?.available ? "Enabled" : "Snapshot"}</b><span>${data.longitudinal?.available ? "next-month forecast" : "forecast data status"}</span></div><div class="res-data-quality-chips">${found.slice(0, 10).map((field) => `<code>${esc(field)}</code>`).join("") || "<span>No mapped fields reported.</span>"}${defaults.length ? `<small>${f0(defaults.length)} optional model fields not supplied; trained defaults were used where needed.</small>` : ""}</div>`;
+      const imputed = data.model_fields_not_supplied || [];
+      const mappings = data.applied_schema_mappings || [];
+      qualityFields.innerHTML = `<div><b>${f0(found.length)}</b><span>uploaded model fields</span></div><div><b>${f0(data.employee_table_count || 0)}</b><span>valid rows scored</span></div><div><b>${data.longitudinal?.available ? "Enabled" : "Snapshot"}</b><span>${data.longitudinal?.available ? "next-month forecast" : "forecast data status"}</span></div><div class="res-data-quality-chips">${found.slice(0, 10).map((field) => `<code>${esc(field)}</code>`).join("") || "<span>No mapped fields reported.</span>"}${mappings.length ? `<small>Schema mapping: ${esc(mappings.join("; "))}</small>` : ""}${imputed.length ? `<small>${f0(imputed.length)} unavailable fields were handled by the model's fitted imputer.</small>` : ""}</div>`;
     }
 
     // 2. Risk Tier Distribution Bar
@@ -1759,24 +1801,9 @@
     // 3. Role-Based Breakdown
     const roles = data.role_analysis || [];
     if (roles.length) {
-      $("#res-role-bars").innerHTML = roles.map(r => {
-        const sc = Number(r.mean_score || 0);
-        const wPct = Math.min(100, Math.max(5, (sc / 10) * 100));
-        const color = sc >= 3.7 ? '#ef4444' : (sc >= 2.5 ? '#f59e0b' : '#10b981');
-        const driverBadges = (r.drivers || []).map(d => `<span class="res-driver-badge">${esc(d.name)}: ${esc(d.delta)}</span>`).join('');
-        return `
-          <div class="res-role-row">
-            <div class="res-role-meta">
-              <span class="res-role-name">${esc(r.name)} <small style="color:#64748b">(${f0(r.employees)} emp)</small></span>
-              <span class="res-role-score-val" style="color:${color}">${sc.toFixed(2)}/10 <small style="color:#64748b">(${r.elevated_rate}% elev)</small></span>
-            </div>
-            <div class="res-role-meter">
-              <div class="res-role-fill" style="width:${wPct}%;background:${color}"></div>
-            </div>
-            ${driverBadges ? `<div class="res-role-drivers">${driverBadges}</div>` : ''}
-          </div>
-        `;
-      }).join('');
+      const priority = [...roles].sort((a, b) => Number(b.elevated_rate || 0) - Number(a.elevated_rate || 0))[0];
+      const driver = priority.drivers?.[0];
+      $("#res-role-bars").innerHTML = `<div class="res-role-insight"><span class="res-role-insight__label">Priority review</span><div><b>${esc(priority.name)}</b><p>Highest elevated-review rate: <strong>${Number(priority.elevated_rate || 0).toFixed(1)}%</strong> across ${f0(priority.employees || 0)} employees.${driver ? ` Primary workload signal: <em>${esc(driver.name)} ${esc(driver.delta || "")}</em>.` : ""}</p></div><a href="#/interventions">Compare support scenarios →</a></div>`;
     } else {
       $("#res-role-bars").innerHTML = '<p class="note">No role breakdown available.</p>';
     }
@@ -2256,6 +2283,14 @@
     const forecastWorkspace = data.longitudinal?.available && nextForecast
       ? `<section class="workspace-card workspace-card--wide workspace-forecast"><div class="workspace-card__title"><div><h3>Next-month workforce forecast</h3><p class="workspace-card__sub">Trained Ridge model using the uploaded employee-level monthly history.</p></div><span>${esc(nextForecast.forecast_period || "Next period")}</span></div><div class="workspace-forecast__metrics"><div><small>Latest observed CBI</small><b>${Number(nextForecast.last_observed_mean_cbi || 0).toFixed(1)}</b></div><div><small>Projected mean CBI</small><b>${Number(nextForecast.projected_mean_cbi || 0).toFixed(1)}</b></div><div><small>95% individual range</small><b>${Number(nextForecast.interval_95_lower || 0).toFixed(1)}–${Number(nextForecast.interval_95_upper || 0).toFixed(1)}</b></div></div><p class="workspace-forecast__note">${esc(data.longitudinal.forecast?.forecast_insight?.benchmark_comparison || "Forecast is model-based and should support—not replace—human review.")}</p></section>`
       : `<section class="workspace-card workspace-card--wide workspace-forecast workspace-forecast--unavailable"><h3>Next-month workforce forecast</h3><p class="note">Available when employees.csv and monthly.csv contain employee IDs, at least two periods, and the seven CBI survey fields. ${esc(data.longitudinal?.reason || "This upload contains snapshot data only.")}</p></section>`;
+    const forecastDetailTables = () => {
+      const teams = (data.longitudinal?.teams?.rows || []).filter((team) => !team.suppressed && team.mean_forecast != null && Number.isFinite(Number(team.mean_forecast))).slice(0, 12);
+      const employees = (data.longitudinal?.employees?.rows || []).filter((employee) => employee.forecast != null && employee.cbi_work_score != null && Number.isFinite(Number(employee.forecast))).slice(0, 12);
+      const period = esc(data.longitudinal?.loop?.period || "Latest period");
+      const teamChart = teams.length ? `<section class="workspace-card workspace-card--wide forecast-entity-card"><div class="workspace-card__title"><div><h3>Forecast by team</h3><p class="workspace-card__sub">Paired bars compare the latest observed team CBI with the next-period model forecast. Teams under five scored responses are protected from display.</p></div><span>${period} → next period</span></div><div class="forecast-chart-legend"><span class="is-observed"></span> Latest observed <span class="is-projected"></span> Next-period forecast <small>CBI scale: 0–100</small></div><div class="forecast-bar-chart">${teams.map((team) => { const current = Number(team.mean_score), next = Number(team.mean_forecast), rise = Number(team.rise), review = next >= 50 || rise >= 3; return `<article><div class="forecast-bar-chart__label"><strong>${esc(`${team.department || ""} · ${team.team_id || "Team"}`)}</strong><small>${f0(team.n_scored || 0)} scored · <b class="${rise > .2 ? "is-rising" : rise < -.2 ? "is-falling" : ""}">${rise > .2 ? "+" : ""}${rise.toFixed(1)} pts</b></small></div><div class="forecast-bar-chart__tracks"><i class="is-observed"><b style="width:${Math.min(100, Math.max(2, current))}%"></b><em>${current.toFixed(1)}</em></i><i class="is-projected"><b style="width:${Math.min(100, Math.max(2, next))}%"></b><em>${next.toFixed(1)}</em></i></div><span class="group-status ${review ? "is-review" : "is-monitor"}">${review ? "Review support" : "Monitor"}</span></article>`; }).join("")}</div></section>` : "";
+      const employeeChart = employees.length ? `<section class="workspace-card workspace-card--wide forecast-entity-card"><div class="workspace-card__title"><div><h3>Forecast by employee</h3><p class="workspace-card__sub">Slope lines show the observed score moving to the next-period forecast for the people with the largest predicted increases.</p></div><span>Top ${f0(employees.length)} predicted rises</span></div><div class="forecast-chart-legend"><span class="is-observed"></span> Latest observed <span class="is-projected"></span> Next-period forecast <small>CBI scale: 0–100 · private supportive review only</small></div><div class="forecast-slope-chart">${employees.map((employee) => { const current = Number(employee.cbi_work_score), next = Number(employee.forecast), rise = Number(employee.forecast_change), left = Math.min(current, next), width = Math.max(1.5, Math.abs(next - current)); return `<article><div class="forecast-slope-chart__label"><strong>${esc(employee.employee_id || "Employee")}</strong><small>${esc(employee.team_id || employee.department || "—")}</small></div><div class="forecast-slope-chart__plot"><i class="forecast-slope-chart__line ${rise > .2 ? "is-rising" : rise < -.2 ? "is-falling" : ""}" style="left:${left}%;width:${width}%"></i><b class="forecast-slope-chart__dot is-observed" style="left:${current}%" title="Observed ${current.toFixed(1)}"></b><b class="forecast-slope-chart__dot is-projected" style="left:${next}%" title="Forecast ${next.toFixed(1)}"></b></div><span class="forecast-slope-chart__values"><b>${current.toFixed(1)}</b><i>→</i><b>${next.toFixed(1)}</b><em class="${rise > .2 ? "is-rising" : rise < -.2 ? "is-falling" : ""}">${rise > .2 ? "+" : ""}${rise.toFixed(1)}</em></span></article>`; }).join("")}</div><p class="workspace-table-note">Forecasts are planning signals, not diagnoses or automated employment decisions. Discuss context with the person before acting.</p></section>` : "";
+      return teamChart || employeeChart ? `${teamChart}${employeeChart}` : "";
+    };
     const roleHeatmap = () => {
       const ordered = roles.map((role) => [role.name, role.risk_tiers || {}]).sort((a, b) => ((b[1].Elevated || 0) + (b[1].Moderate || 0) + (b[1].Low || 0)) - ((a[1].Elevated || 0) + (a[1].Moderate || 0) + (a[1].Low || 0))).slice(0, 12);
       const hasCounts = ordered.some(([, counts]) => Number(counts.Low || 0) + Number(counts.Moderate || 0) + Number(counts.Elevated || 0) > 0);
@@ -2304,13 +2339,31 @@
       const forecastInterpretation = `<div class="forecast-analysis-grid"><article><span class="forecast-analysis__eyebrow">Next-period signal</span><h3>${projectionDelta > .2 ? "Modest increase projected" : projectionDelta < -.2 ? "Modest improvement projected" : "Broadly stable projection"}</h3><p>The model projects <b>${Math.abs(projectionDelta).toFixed(1)} CBI points ${projectionDelta > .2 ? "higher" : projectionDelta < -.2 ? "lower" : "from"}</b> than the latest workforce average (${Number(projection?.last_observed_mean_cbi || 0).toFixed(1)} → ${Number(projection?.projected_mean_cbi || 0).toFixed(1)}).</p></article><article><span class="forecast-analysis__eyebrow">Reliability context</span><h3>Use as a planning range</h3><p>The <b>${Number(projection?.interval_95_lower || 0).toFixed(1)}–${Number(projection?.interval_95_upper || 0).toFixed(1)}</b> range reflects substantial individual variation. It is not a diagnosis or a certainty for any employee.</p></article><article><span class="forecast-analysis__eyebrow">Largest observed miss</span><h3>${largestGap ? esc(largestGap.period) : "Not available"}</h3><p>${largestGap ? `The forecast differed from the recorded mean by <b>${Math.abs(Number(largestGap.forecast_predicted_t1) - Number(largestGap.future_actual_target_t1)).toFixed(1)} CBI points</b>; use this as a practical uncertainty reminder.` : "More historical transition points are needed for this diagnostic."}</p></article></div>`;
       const monthlyReview = points.length ? `<section class="workspace-card workspace-card--wide forecast-review"><div class="workspace-card__title"><div><h3>Monthly forecast review</h3><p class="workspace-card__sub">Back-tested predictions against recorded outcomes. Error is absolute difference in CBI points.</p></div><span>${f0(points.length)} held-out monthly points</span></div><div class="forecast-review__table"><div><span>Period</span><span>Forecast</span><span>Observed</span><span>Error</span><span>Interpretation</span></div>${points.map((point) => { const diff = Number(point.future_actual_target_t1) - Number(point.forecast_predicted_t1); return `<div><b>${esc(point.period)}</b><span>${Number(point.forecast_predicted_t1).toFixed(1)}</span><span>${Number(point.future_actual_target_t1).toFixed(1)}</span><strong class="${Math.abs(diff) <= Number(forecast?.benchmarks?.ridge?.mae || 0) ? "is-good" : "is-watch"}">${Math.abs(diff).toFixed(1)}</strong><small>${diff > .3 ? "Observed above forecast" : diff < -.3 ? "Observed below forecast" : "Close to forecast"}</small></div>`; }).join("")}</div></section>` : "";
       if (!data.longitudinal?.available || !projection) return `<div class="workspace-head"><p class="analysis-state__eyebrow">Forecast unavailable</p><h2>Trends &amp; forecast</h2><p>Upload compatible employee-level monthly history to unlock the trained forecast model.</p></div>${forecastWorkspace}`;
-      return `<div class="workspace-head"><p class="analysis-state__eyebrow">Trained longitudinal model</p><h2>Trends &amp; forecast</h2><p>Monthly CBI trajectory, next-period projection, and held-out forecast quality from the uploaded history.</p></div><div class="workspace-kpis"><div><small>Latest observed CBI</small><b>${Number(projection.last_observed_mean_cbi || 0).toFixed(1)}</b><span>${esc(projection.last_observed_period || "latest period")}</span></div><div><small>Next-month forecast</small><b>${Number(projection.projected_mean_cbi || 0).toFixed(1)}</b><span>${esc(projection.forecast_period || "next period")}</span></div><div><small>Ridge model MAE</small><b>${Number(forecast.benchmarks?.ridge?.mae || 0).toFixed(1)}</b><span>held-out employee transitions</span></div></div><section class="workspace-card workspace-card--wide"><div class="workspace-card__title"><div><h3>Forecast versus observed trend</h3><p class="workspace-card__sub">Each point compares a prediction made before the next month with the recorded CBI outcome.</p></div><span>CBI 0–100</span></div>${chart}</section>${forecastInterpretation}${monthlyReview}<div class="workspace-grid"><section class="workspace-card"><h3>Forecast range</h3><p class="note">The workforce forecast is <b>${Number(projection.projected_mean_cbi || 0).toFixed(1)}</b> CBI points. Individual 95% range: <b>${Number(projection.interval_95_lower || 0).toFixed(1)}–${Number(projection.interval_95_upper || 0).toFixed(1)}</b>.</p></section><section class="workspace-card"><h3>Model quality</h3><p class="note">${esc(forecast.forecast_insight?.benchmark_comparison || "Model performance is reported from held-out employee transitions.")}</p><p class="note">${esc(forecast.leakage_safeguard || "")}</p></section></div>`;
+      return `<div class="workspace-head"><p class="analysis-state__eyebrow">Trained longitudinal model</p><h2>Trends &amp; forecast</h2><p>Monthly CBI trajectory, next-period projection, and held-out forecast quality from the uploaded history.</p></div><div class="workspace-kpis"><div><small>Latest observed CBI</small><b>${Number(projection.last_observed_mean_cbi || 0).toFixed(1)}</b><span>${esc(projection.last_observed_period || "latest period")}</span></div><div><small>Next-month forecast</small><b>${Number(projection.projected_mean_cbi || 0).toFixed(1)}</b><span>${esc(projection.forecast_period || "next period")}</span></div><div><small>Ridge model MAE</small><b>${Number(forecast.benchmarks?.ridge?.mae || 0).toFixed(1)}</b><span>held-out employee transitions</span></div></div><section class="workspace-card workspace-card--wide"><div class="workspace-card__title"><div><h3>Forecast versus observed trend</h3><p class="workspace-card__sub">Each point compares a prediction made before the next month with the recorded CBI outcome.</p></div><span>CBI 0–100</span></div>${chart}</section>${forecastInterpretation}${monthlyReview}${forecastDetailTables()}<div class="workspace-grid"><section class="workspace-card"><h3>Forecast range</h3><p class="note">The workforce forecast is <b>${Number(projection.projected_mean_cbi || 0).toFixed(1)}</b> CBI points. Individual 95% range: <b>${Number(projection.interval_95_lower || 0).toFixed(1)}–${Number(projection.interval_95_upper || 0).toFixed(1)}</b>.</p></section><section class="workspace-card"><h3>Model quality</h3><p class="note">${esc(forecast.forecast_insight?.benchmark_comparison || "Model performance is reported from held-out employee transitions.")}</p><p class="note">${esc(forecast.leakage_safeguard || "")}</p></section></div>`;
     }
     if (page === "interventions") {
-      return `<div class="workspace-head"><p class="analysis-state__eyebrow">Generated analysis</p><h2>Recommended supportive interventions</h2><p>These scenarios estimate the potential change in the uploaded workforce data. They support human decisions; they do not make them.</p></div>
-        <div class="workspace-kpis"><div><small>Actions generated</small><b>${f0(interventions.length)}</b><span>based on present workforce fields</span></div><div><small>Elevated records</small><b>${f0(dist.Elevated || 0)}</b><span>priority for human review</span></div><div><small>Scored workforce</small><b>${f0(total)}</b><span>valid uploaded records</span></div></div>
-        <div class="workspace-grid"><section class="workspace-card"><h3>Review priority</h3>${tierVisual}</section><section class="workspace-card"><h3>Role risk drivers</h3><p class="workspace-card__sub">Drivers are calculated from patterns in the uploaded rows.</p>${groupRows(roles.slice(0, 5), "No role breakdown is available.", true)}</section></div>
-        <section class="workspace-card workspace-card--wide"><div class="workspace-card__title"><h3>Scenario options</h3><span>Projected, not guaranteed outcomes</span></div><div class="workspace-interventions">${interventions.map((item) => `<article class="workspace-intervention"><div><span class="workspace-intervention__badge">${esc(item.badge || item.effort || "Policy")}</span><h4>${esc(item.title || "Recommended action")}</h4><p>${esc(item.description || item.action || "Review the relevant workload pattern with the responsible manager.")}</p></div><dl><div><dt>Estimated score change</dt><dd>−${Number(item.score_drop || 0).toFixed(2)} pts</dd></div><div><dt>Employees potentially protected</dt><dd>${f0(item.protected_employees || 0)}</dd></div></dl><a class="workspace-link" href="#/">View associated risk drivers</a></article>`).join("") || `<p class="note">No intervention scenario could be generated from the uploaded fields.</p>`}</div></section>`;
+      const baseline = Number(data.mean_burnout_score || 0);
+      const bestAction = interventions.reduce((best, item) => Number(item.score_drop || 0) > Number(best?.score_drop || 0) ? item : best, null);
+      const projected = Number(nextForecast?.projected_mean_cbi), observed = Number(nextForecast?.last_observed_mean_cbi);
+      const forecastReady = Number.isFinite(projected) && Number.isFinite(observed);
+      const forecastSignal = forecastReady ? `${projected.toFixed(1)} CBI ${projected > observed ? "projected above" : projected < observed ? "projected below" : "in line with"} the latest ${observed.toFixed(1)}` : "Forecast needs at least two monthly periods";
+      const decisionBrief = `<section class="intervention-brief" aria-label="Forecast, simulation and decision workflow"><article><span>01 Forecast</span><h3>${forecastReady ? esc(nextForecast.forecast_period || "Next period") : "Data status"}</h3><p>${esc(forecastSignal)}</p><a href="#/forecast">Open forecast →</a></article><article><span>02 Simulate</span><h3>${bestAction ? esc(bestAction.title || "Best current scenario") : "No scenario available"}</h3><p>${bestAction ? `Largest modelled change: −${Number(bestAction.score_drop || 0).toFixed(2)} points from the current workforce baseline.` : "Add relevant workload fields to generate scenarios."}</p></article><article><span>03 Decide &amp; verify</span><h3>${f0(dist.Elevated || 0)} records need review</h3><p>Discuss supportive options with managers, log the action, then compare against the next survey—not a modelled outcome alone.</p><a href="#/people">Open review queue →</a></article></section>`;
+      const scenarioTable = interventions.length ? `<section class="workspace-card workspace-card--wide intervention-table-card"><div class="workspace-card__title"><div><h3>Decision queue</h3><p class="workspace-card__sub">Ranked options from the uploaded workforce data. Select a row to review the projected impact and implementation trade-off.</p></div><span>${f0(interventions.length)} options</span></div><div class="intervention-table" role="table" aria-label="Intervention scenario decision queue"><div class="intervention-table__head" role="row"><span>Scenario</span><span>Workforce baseline</span><span>Modelled change</span><span>Potentially protected</span><span>Effort</span><span></span></div>${interventions.map((item, index) => `<div role="row" data-intervention-row="${index}"><strong>${esc(item.title || "Recommended action")}</strong><span>${baseline.toFixed(2)} pts</span><b>−${Number(item.score_drop || 0).toFixed(2)} pts</b><span>${f0(item.protected_employees || 0)}</span><em>${esc(item.effort || "Review")}</em><button type="button" class="intervention-select" data-intervention-select="${index}">Review</button></div>`).join("")}</div><div class="intervention-focus" id="intervention-focus" aria-live="polite"></div></section>` : "";
+      const groupData = data.team_analysis?.length ? data.team_analysis : (data.department_analysis?.length ? data.department_analysis : roles);
+      const groupLabel = data.team_analysis?.length ? "Team" : (data.department_analysis?.length ? "Department" : "Role");
+      const groupQueue = groupData.length ? `<section class="workspace-card workspace-card--wide intervention-group-card"><div class="workspace-card__title"><div><h3>${groupLabel} intervention queue</h3><p class="workspace-card__sub">Compare group workload signals before choosing where supportive action should start. Horizontal bars show average score and elevated-review share.</p></div><span>${f0(groupData.length)} ${groupLabel.toLowerCase()}s</span></div><div class="group-intervention-table" role="table" aria-label="${groupLabel} intervention priority queue"><div class="group-intervention-table__head" role="row"><span>${groupLabel}</span><span>Employees</span><span>Average score</span><span>Elevated share</span><span>Decision status</span></div>${[...groupData].sort((a, b) => Number(b.elevated_rate || 0) - Number(a.elevated_rate || 0)).slice(0, 12).map((group) => { const score = Number(group.mean_score || 0), elevatedRate = Number(group.elevated_rate || 0), needsReview = elevatedRate >= Math.max(10, Number(data.elevated_review_rate || 0)); return `<div role="row"><strong title="${esc(group.name)}">${esc(group.name)}</strong><span>${f0(group.employees || 0)}</span><span class="group-bar-cell"><i class="group-bar group-bar--score"><b style="width:${Math.min(100, Math.max(2, score * 10))}%"></b></i><em>${score.toFixed(2)}</em></span><span class="group-bar-cell"><i class="group-bar group-bar--risk"><b style="width:${Math.min(100, Math.max(2, elevatedRate))}%"></b></i><em>${elevatedRate.toFixed(1)}%</em></span><span><b class="group-status ${needsReview ? "is-review" : "is-monitor"}">${needsReview ? "Review support" : "Monitor"}</b></span></div>`; }).join("")}</div><p class="workspace-table-note">Groups with fewer than five people should be reviewed only in aggregate to protect privacy.</p></section>` : "";
+      const teamForecastRows = (data.longitudinal?.teams?.rows || []).filter((team) => !team.suppressed && team.mean_forecast != null && Number.isFinite(Number(team.mean_forecast))).slice(0, 12);
+      const employeeForecastRows = (data.longitudinal?.employees?.rows || []).filter((employee) => employee.forecast != null && employee.cbi_work_score != null && Number.isFinite(Number(employee.forecast))).slice(0, 12);
+      const teamForecastQueue = teamForecastRows.length ? `<section class="workspace-card workspace-card--wide forecast-entity-card"><div class="workspace-card__title"><div><h3>Team forecast queue</h3><p class="workspace-card__sub">Next-period CBI forecasts from the final uploaded month. Teams under five scored responses are not shown.</p></div><span>${esc(data.longitudinal?.teams?.period || "Latest period")} → next period</span></div><div class="forecast-entity-table" role="table" aria-label="Team next-period forecast queue"><div class="forecast-entity-table__head" role="row"><span>Team</span><span>Scored</span><span>Latest observed</span><span>Next-period forecast</span><span>Change</span><span>Support signal</span></div>${teamForecastRows.map((team) => { const current = Number(team.mean_score), next = Number(team.mean_forecast), rise = Number(team.rise); const review = next >= 50 || rise >= 3; return `<div role="row"><strong title="${esc(`${team.department || ""} · ${team.team_id || ""}`)}">${esc(`${team.department || ""} · ${team.team_id || "Team"}`)}</strong><span>${f0(team.n_scored || 0)}</span><span class="group-bar-cell"><i class="group-bar group-bar--score"><b style="width:${Math.min(100, Math.max(2, current))}%"></b></i><em>${current.toFixed(1)}</em></span><span class="group-bar-cell"><i class="group-bar group-bar--forecast"><b style="width:${Math.min(100, Math.max(2, next))}%"></b></i><em>${next.toFixed(1)}</em></span><b class="forecast-change ${rise > .2 ? "is-rising" : rise < -.2 ? "is-falling" : ""}">${rise > .2 ? "+" : ""}${rise.toFixed(1)}</b><span><b class="group-status ${review ? "is-review" : "is-monitor"}">${review ? "Review support" : "Monitor"}</b></span></div>`; }).join("")}</div><p class="workspace-table-note">Forecasts guide supportive team planning; they are not guarantees or individual diagnoses.</p></section>` : "";
+      const employeeForecastQueue = employeeForecastRows.length ? `<section class="workspace-card workspace-card--wide forecast-entity-card"><div class="workspace-card__title"><div><h3>Employee forecast review</h3><p class="workspace-card__sub">The 12 largest predicted increases, sorted by next-period change. Use this private review queue to offer support, not to make automated employment decisions.</p></div><span>${esc(data.longitudinal?.employees?.period || "Latest period")} → next period</span></div><div class="forecast-entity-table forecast-entity-table--people" role="table" aria-label="Employee next-period forecast review"><div class="forecast-entity-table__head" role="row"><span>Employee</span><span>Team</span><span>Latest observed</span><span>Next-period forecast</span><span>Change</span><span>Review signal</span></div>${employeeForecastRows.map((employee) => { const current = Number(employee.cbi_work_score), next = Number(employee.forecast), rise = Number(employee.forecast_change); const review = next >= 50 || rise >= 3; return `<div role="row"><strong>${esc(employee.employee_id || "Employee")}</strong><span>${esc(employee.team_id || employee.department || "—")}</span><span class="group-bar-cell"><i class="group-bar group-bar--score"><b style="width:${Math.min(100, Math.max(2, current))}%"></b></i><em>${current.toFixed(1)}</em></span><span class="group-bar-cell"><i class="group-bar group-bar--forecast"><b style="width:${Math.min(100, Math.max(2, next))}%"></b></i><em>${next.toFixed(1)}</em></span><b class="forecast-change ${rise > .2 ? "is-rising" : rise < -.2 ? "is-falling" : ""}">${rise > .2 ? "+" : ""}${rise.toFixed(1)}</b><span><b class="group-status ${review ? "is-review" : "is-monitor"}">${review ? "Offer check-in" : "Monitor"}</b></span></div>`; }).join("")}</div><p class="workspace-table-note">Only authorised people managers should see employee-level forecasts. Discuss context with the person before acting.</p></section>` : "";
+      const forecastQueues = (teamForecastQueue || employeeForecastQueue) ? `${teamForecastQueue}${employeeForecastQueue}` : `<section class="workspace-card workspace-card--wide forecast-entity-card"><h3>Employee &amp; team forecasting</h3><p class="note">Upload employees.csv and at least two compatible monthly periods (employee_id, period, and CBI survey fields) to unlock next-period team and employee forecasts.</p></section>`;
+      const categoryNav = `<nav class="intervention-category-nav" aria-label="Intervention workspace categories"><button type="button" class="is-active" data-intervention-category="overview">Overview</button><button type="button" data-intervention-category="teams">Team priority</button><button type="button" data-intervention-category="forecasts">Forecasts</button><button type="button" data-intervention-category="scenarios">Scenarios</button></nav>`;
+      return `<div class="workspace-head"><p class="analysis-state__eyebrow">Forecast · simulate · intervene · verify</p><h2>Support decision workspace</h2><p>Use forecasts to plan, simulations to compare workload-support options, and follow-up data to verify whether a change helped. These outputs support human decisions only.</p></div>
+        ${categoryNav}
+        <div class="intervention-category-panel" data-intervention-category-panel="overview">${decisionBrief}<div class="workspace-kpis"><div><small>Actions generated</small><b>${f0(interventions.length)}</b><span>based on present workforce fields</span></div><div><small>Elevated records</small><b>${f0(dist.Elevated || 0)}</b><span>priority for supportive review</span></div><div><small>Most protective scenario</small><b>${f0(bestAction?.protected_employees || 0)}</b><span>${esc(bestAction?.title || "No scenario generated")}</span></div></div><div class="workspace-grid"><section class="workspace-card"><h3>Review priority</h3>${tierVisual}</section><section class="workspace-card"><h3>Role risk drivers</h3><p class="workspace-card__sub">Drivers are calculated from patterns in the uploaded rows.</p>${groupRows(roles.slice(0, 5), "No role breakdown is available.", true)}</section></div></div>
+        <div class="intervention-category-panel" data-intervention-category-panel="teams" hidden>${groupQueue}</div>
+        <div class="intervention-category-panel" data-intervention-category-panel="forecasts" hidden>${forecastQueues}</div>
+        <div class="intervention-category-panel" data-intervention-category-panel="scenarios" hidden>${scenarioTable}<section class="workspace-card workspace-card--wide"><div class="workspace-card__title"><div><h3>Scenario options</h3><p class="workspace-card__sub">Each option is a modelled planning scenario, not a guarantee of an individual outcome.</p></div><span>Projected, not guaranteed outcomes</span></div><div class="workspace-interventions">${interventions.map((item, index) => `<article class="workspace-intervention" data-intervention-card="${index}"><div><span class="workspace-intervention__badge">${esc(item.badge || item.effort || "Policy")}</span><h4>${esc(item.title || "Recommended action")}</h4><p>${esc(item.description || item.action || "Review the relevant workload pattern with the responsible manager.")}</p></div><dl><div><dt>Estimated score change</dt><dd>−${Number(item.score_drop || 0).toFixed(2)} pts</dd></div><div><dt>Employees potentially protected</dt><dd>${f0(item.protected_employees || 0)}</dd></div></dl><button type="button" class="workspace-link intervention-select" data-intervention-select="${index}">Review this scenario</button></article>`).join("") || `<p class="note">No intervention scenario could be generated from the uploaded fields.</p>`}</div></section></div>`;
     }
     if (page === "people") {
       const roleOptions = roles.map((role) => `<option value="${esc(role.name)}">${esc(role.name)}</option>`).join("");
@@ -2357,6 +2410,44 @@
         });
         if (breakdownContentNode) breakdownContentNode.innerHTML = breakdownContent(breakdownItems[button.dataset.breakdownTab] || []);
       }));
+    }
+    if (page === "interventions") {
+      const interventions = data.interventions || [];
+      const focus = $("#intervention-focus");
+      const showCategory = (category) => {
+        $$('[data-intervention-category-panel]').forEach((panel) => { panel.hidden = panel.dataset.interventionCategoryPanel !== category; });
+        $$('[data-intervention-category]').forEach((button) => {
+          const active = button.dataset.interventionCategory === category;
+          button.classList.toggle("is-active", active);
+          button.setAttribute("aria-current", active ? "page" : "false");
+        });
+      };
+      $$('[data-intervention-category]').forEach((button) => button.addEventListener("click", () => showCategory(button.dataset.interventionCategory)));
+      const selectScenario = (index) => {
+        const item = interventions[index];
+        if (!item) return;
+        $$('[data-intervention-row], [data-intervention-card]').forEach((node) => node.classList.toggle("is-selected", Number(node.dataset.interventionRow ?? node.dataset.interventionCard) === index));
+        if (!focus) return;
+        focus.innerHTML = `<b>${esc(item.title || "Selected scenario")}</b><span>${esc(item.action || item.description || "Review this option with the responsible manager.")}</span><small>Plan an owner and follow-up date before recording the action. The modelled reduction (−${Number(item.score_drop || 0).toFixed(2)} points) is a planning estimate; verify it against a later survey.</small><div class="simulation-run"><button type="button" data-run-intervention-simulation="${esc(item.id || "")}">Run simulation</button><span>Recalculates this workload change against the active uploaded workforce.</span></div><div class="simulation-result" aria-live="polite"></div>`;
+        focus.querySelector("[data-run-intervention-simulation]")?.addEventListener("click", async (event) => {
+          const button = event.currentTarget;
+          const resultNode = focus.querySelector(".simulation-result");
+          button.disabled = true;
+          button.textContent = "Running simulation...";
+          try {
+            const result = await api("/api/simulate-intervention", { method: "POST", body: JSON.stringify({ intervention_id: button.dataset.runInterventionSimulation }), headers: { "Content-Type": "application/json", Accept: "application/json" } });
+            const simulation = result.scenario || {};
+            resultNode.innerHTML = `<strong>Simulation complete</strong><div><span>Workforce score <b>${Number(result.baseline_score || 0).toFixed(2)} → ${Number(simulation.sim_score || 0).toFixed(2)}</b></span><span>Elevated rate <b>${Number(result.baseline_elevated_rate || 0).toFixed(1)}% → ${Number(simulation.sim_elev_rate || 0).toFixed(1)}%</b></span><span>Potentially protected <b>${f0(simulation.protected_employees || 0)}</b></span></div><small>${esc(result.note || "Modelled planning estimate; verify against a later survey.")}</small>`;
+          } catch (error) {
+            resultNode.innerHTML = `<strong>Simulation could not run</strong><small>${esc(error.message)}</small>`;
+          } finally {
+            button.disabled = false;
+            button.textContent = "Run simulation again";
+          }
+        });
+      };
+      $$('[data-intervention-select]').forEach((button) => button.addEventListener("click", () => selectScenario(Number(button.dataset.interventionSelect))));
+      if (interventions.length) selectScenario(0);
     }
     if (page === "people") {
       const search = $("#employee-review-search"), tier = $("#employee-review-tier"), role = $("#employee-review-role"), mode = $("#employee-review-mode"), city = $("#employee-review-city"), sort = $("#employee-review-sort"), pageSize = $("#employee-review-page-size"), destination = $("#employee-review-rows"), summary = $("#employee-review-summary"), pager = $("#employee-review-pager");
@@ -2575,10 +2666,21 @@
       } catch (err) { toast(err.message); }
       b.disabled = false; b.textContent = "Continue to data upload";
     });
+    $("[data-password-toggle]")?.addEventListener("click", (e) => {
+      const button = e.currentTarget;
+      const input = $("#" + button.getAttribute("aria-controls"));
+      if (!input) return;
+      const hide = input.type === "text";
+      input.type = hide ? "password" : "text";
+      button.textContent = hide ? "Show" : "Hide";
+      button.setAttribute("aria-label", hide ? "Show password" : "Hide password");
+    });
     $("#signin-company").addEventListener("submit", (e) => {
       e.preventDefault();
-      const name = String(new FormData(e.target).get("company") || "").trim();
-      if (!name) return;
+      const form = new FormData(e.target);
+      const name = String(form.get("user_id") || "").trim();
+      const password = String(form.get("password") || "");
+      if (!name || !password) return;
       setUser({ kind: "company", name });
       renderAccount();
       location.hash = "#/data";
