@@ -71,6 +71,14 @@ MIN_MODEL_INPUT_FIELDS = 5
 # Multipliers only normalize published 1–10 wellbeing scales to the 20–200
 # scale used when the production model was trained.
 UPLOAD_COLUMN_ALIASES: dict[str, tuple[str, float]] = {
+    # BurnoutIQ's employee/monthly template names.
+    "role_type": ("job_role", 1.0),
+    "meeting_hours_per_week": ("meetings_per_day", 0.2),
+    "stress_level_0_10": ("stress_level", 1.0),
+    "sleep_hours_avg": ("sleep_hours", 1.0),
+    "manager_support_1_5": ("manager_support", 20.0),
+    "work_life_balance_1_5": ("work_life_balance", 20.0),
+    "job_satisfaction_1_5": ("job_satisfaction", 20.0),
     "years_experience": ("experience_years", 1.0),
     "sleep_hours_per_night": ("sleep_hours", 1.0),
     "exercise_days_per_week": ("physical_activity_days", 1.0),
@@ -1285,6 +1293,21 @@ def api_analyse_upload():
             return jsonify({"error": "No CSV file received."}), 400
         payload = _uploaded_csv_bytes(f)
         filename = (f.filename or "upload.csv").removesuffix(".gz")
+        # Combine the time-varying monthly data with the stable employee
+        # attributes when both related files were uploaded. This prevents a
+        # valid three-file upload from being rejected merely because fields
+        # such as job_role and work_mode live in employees.csv.
+        employees_file = request.files.get("employees")
+        if employees_file is not None:
+            employee_payload = _uploaded_csv_bytes(employees_file)
+            monthly_df = pd.read_csv(io.BytesIO(payload))
+            employees_df = pd.read_csv(io.BytesIO(employee_payload))
+            monthly_df.columns = [str(c).strip() for c in monthly_df.columns]
+            employees_df.columns = [str(c).strip() for c in employees_df.columns]
+            if "employee_id" in monthly_df.columns and "employee_id" in employees_df.columns:
+                additions = [c for c in employees_df.columns if c == "employee_id" or c not in monthly_df.columns]
+                monthly_df = monthly_df.merge(employees_df[additions].drop_duplicates("employee_id"), on="employee_id", how="left")
+                payload = monthly_df.to_csv(index=False).encode("utf-8")
         return jsonify(get_state().analyse_upload(io.BytesIO(payload), filename))
     except Exception as exc:
         return jsonify({"error": str(exc)}), 400

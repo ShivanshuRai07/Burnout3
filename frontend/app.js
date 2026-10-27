@@ -1681,6 +1681,14 @@
         const packedMonthly = await gzipUpload(companyFiles.monthly);
         if (packedMonthly.size > VERCEL_SAFE_UPLOAD_BYTES) throw new Error(uploadLimitMessage(packedMonthly.size));
         fd.append('monthly', packedMonthly, packedMonthly.name);
+        // The monthly file contains time-varying workload measures; employees.csv
+        // supplies stable attributes such as job role and work mode. Send both so
+        // the score/risk models assess one complete employee record.
+        if (companyFiles.employees) {
+          const packedEmployees = await gzipUpload(companyFiles.employees);
+          if (packedEmployees.size > VERCEL_SAFE_UPLOAD_BYTES) throw new Error(uploadLimitMessage(packedEmployees.size));
+          fd.append('employees', packedEmployees, packedEmployees.name);
+        }
         const res  = await fetch('/api/analyse-upload', { method: 'POST', body: fd });
         const data = await readUploadResponse(res);
         if (!res.ok || data.error) throw new Error(data.error || 'Upload analysis failed');
